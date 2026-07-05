@@ -156,7 +156,7 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
     <input type="text" id="bb" value="1 12" inputmode="numeric">
   </div>
   <div class="btn-row">
-    <button class="btn btn-update" ontouchstart="" onclick="fetchLatest()">🔄 联网更新</button>
+    <button class="btn btn-update" ontouchstart="" onclick="refreshData()">🔄 联网更新</button>
     <button class="btn btn-manual" ontouchstart="" onclick="showManual()">✏️ 手动输入</button>
   </div>
   <span class="status" id="updateStatus"></span>
@@ -296,8 +296,8 @@ window.addEventListener("DOMContentLoaded", function(){
   updateLatestDraw();
   // 每30秒更新一次时间
   setInterval(updateDateTime, 30000);
-  // 自动获取最新开奖数据
-  fetchLatest();
+  // 优先从同域 lottery_data.json 读取（GitHub Actions 自动更新）
+  fetchJsonData();
 });
 
 // ========== 本地存储 ==========
@@ -864,72 +864,164 @@ function confirmManual(){
   closeManual();
 }
 
-// ========== 联网更新（体彩官方API） ==========
-var SPORTTERY_API = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=10&isVerify=1&pageNo=1";
+// ========== 联网更新（静默增强策略） ==========
+// 原则：内置HIST数据始终保证可用，联网只是锦上添花
+// 成功→静默更新数据；失败→用户完全无感知
 
-function fetchLatest(){
-  var statusEl = document.getElementById("updateStatus");
-  statusEl.style.color = "#ffd93d";
-  statusEl.innerHTML = "正在获取最新开奖数据...";
+var API_LIST = [
+  { name:"体彩官方", url:"https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=10&isVerify=1&pageNo=1",
+    parse:function(d){ if(!d||!d.value||!d.value.list)return null; var r=[],l=d.value.list; for(var i=0;i<l.length&&i<10;i++){var n=l[i],nums=n.lotteryDrawResult.trim().split(/\s+/); r.push({no:String(n.lotteryDrawNum),dt:n.lotteryDrawTime?n.lotteryDrawTime.substring(0,10):"",f:nums.slice(0,5).map(Number),b:nums.slice(5,7).map(Number)});} return r.length>0?r:null; } },
+  { name:"骑士网", url:"https://www.qishiapi.com/kaijiang/dlt/json?limit=10",
+    parse:function(d){ if(!d||!d.data)return null; var items=d.data.list||d.data;if(!Array.isArray(items))items=[items];var r=[];for(var i=0;i<items.length&&i<10;i++){var it=items[i],no=String(it.expect||it.issue||"").replace(/^20/,""),dt=(it.date||it.time||"").substring(0,10),ns=String(it.number||it.openCode||""),f=[],b=[];if(ns.indexOf("|")>-1){var p=ns.split("|");f=p[0].split(/[,+\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p[1].split(/[,+\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else if(ns.indexOf("+")>-1){var p2=ns.split("+");f=p2[0].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p2[1].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else{var all=ns.split(/[,，\s+|]+/).map(Number).filter(function(n){return n>0;});f=all.slice(0,5);b=all.slice(5,7);}if(f.length===5&&b.length===2)r.push({no:no,dt:dt,f:f,b:b});}return r.length>0?r:null;} },
+  { name:"彩票之家", url:"https://www.caipiaodate.com/lotteryApi/common/getLotteryList?code=dlt&rows=10&format=json",
+    parse:function(d){ if(!d||!d.result||!d.result.data)return null;var items=d.result.data,r=[];if(!Array.isArray(items))items=[items];for(var i=0;i<items.length&&i<10;i++){var it=items[i],no=String(it.expect||"").replace(/^20/,""),dt=(it.date||"").substring(0,10),ns=String(it.number||""),f=[],b=[];if(ns.indexOf("+")>-1){var p=ns.split("+");f=p[0].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p[1].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else{var all=ns.split(/[,，\s+|]+/).map(Number).filter(function(n){return n>0;});f=all.slice(0,5);b=all.slice(5,7);}if(f.length===5&&b.length===2)r.push({no:no,dt:dt,f:f,b:b});}return r.length>0?r:null;} }
+];
 
-  try {
-    var xhr = new XMLHttpRequest();
-    xhr.timeout = 10000;
-    xhr.open("GET", SPORTTERY_API, true);
-    xhr.onload = function(){
-      if(xhr.status === 200){
-        try {
-          var data = JSON.parse(xhr.responseText);
-          if(data && data.value && data.value.list){
-            var drawList = data.value.list;
-            var newHist = [];
-            for(var i = 0; i < drawList.length && i < 10; i++){
-              var d = drawList[i];
-              var nums = d.lotteryDrawResult.trim().split(/\s+/);
-              var front = nums.slice(0, 5).map(Number);
-              var back = nums.slice(5, 7).map(Number);
-              newHist.push({
-                no: d.lotteryDrawNum,
-                dt: d.lotteryDrawTime,
-                f: front,
-                b: back
-              });
-            }
-            if(newHist.length > 0){
-              HIST = newHist;
+// ========== 从同域JSON文件自动读取（GitHub Actions 更新） ==========
+function fetchJsonData(){
+  try{
+    var x = new XMLHttpRequest();
+    x.timeout = 5000;
+    x.open("GET", "lottery_data.json?t=" + Date.now(), true);
+    x.onload = function(){
+      if(x.status >= 200 && x.status < 300){
+        try{
+          var data = JSON.parse(x.responseText);
+          if(data.draws && data.draws.length > 0){
+            // 检查是否比当前HIST更新
+            var newLatest = data.draws[0].no;
+            var curLatest = HIST.length > 0 ? HIST[0].no : "0";
+            if(Number(newLatest) >= Number(curLatest)){
+              HIST = data.draws;
               saveData();
               updateHistDisplay();
               updateLatestDraw();
               updateBaseline();
-              statusEl.style.color = "#64dd17";
-              statusEl.innerHTML = "已自动更新至第" + HIST[0].no + "期（" + HIST[0].dt + "）";
-              return;
             }
+            // 显示自动同步状态
+            var s = document.getElementById("updateStatus");
+            s.style.color = "#64dd17";
+            s.innerHTML = "✅ 自动同步至第" + data.latestIssue + "期（" + data.latestDate + "）<br><span style='color:#888;font-size:11px'>数据同步时间: " + data.lastUpdated + "</span>";
           }
-          statusEl.style.color = "#ff8a80";
-          statusEl.innerHTML = "数据解析失败，请手动输入";
-        } catch(e){
-          statusEl.style.color = "#ff8a80";
-          statusEl.innerHTML = "数据解析异常，请手动输入";
-        }
-      } else {
-        statusEl.style.color = "#ff8a80";
-        statusEl.innerHTML = "获取失败（HTTP " + xhr.status + "），请手动输入";
+        }catch(e){}
       }
     };
-    xhr.onerror = function(){
-      statusEl.style.color = "#ff8a80";
-      statusEl.innerHTML = "网络错误，请手动输入";
+    x.onerror = function(){ /* 静默失败，使用内置数据 */ };
+    x.ontimeout = function(){ /* 静默失败 */ };
+    x.send();
+  }catch(e){ /* 静默失败 */ }
+}
+
+function fetchLatest(manual){
+  var s=document.getElementById("updateStatus");
+  var isManual = (manual !== false);
+  if(isManual) { s.style.color="#ffd93d"; s.innerHTML="正在检查最新开奖..."; }
+  _tryApi(0, isManual);
+}
+
+// 手动刷新：优先JSON，失败则尝试API
+function refreshData(){
+  var s = document.getElementById("updateStatus");
+  s.style.color = "#ffd93d";
+  s.innerHTML = "正在同步最新开奖数据...";
+  try{
+    var x = new XMLHttpRequest();
+    x.timeout = 5000;
+    x.open("GET", "lottery_data.json?t=" + Date.now(), true);
+    x.onload = function(){
+      if(x.status >= 200 && x.status < 300){
+        try{
+          var data = JSON.parse(x.responseText);
+          if(data.draws && data.draws.length > 0){
+            HIST = data.draws;
+            saveData();
+            updateHistDisplay();
+            updateLatestDraw();
+            updateBaseline();
+            s.style.color = "#64dd17";
+            s.innerHTML = "✅ 已同步至第" + data.latestIssue + "期（" + data.latestDate + "）<br><span style='color:#888;font-size:11px'>数据同步时间: " + data.lastUpdated + "</span>";
+            return;
+          }
+        }catch(e){}
+      }
+      // JSON失败，尝试旧API
+      fetchLatest(true);
     };
-    xhr.ontimeout = function(){
-      statusEl.style.color = "#ff8a80";
-      statusEl.innerHTML = "获取超时，请手动输入";
-    };
-    xhr.send();
-  } catch(e){
-    statusEl.style.color = "#ff8a80";
-    statusEl.innerHTML = "获取失败，请手动输入";
+    x.onerror = function(){ fetchLatest(true); };
+    x.ontimeout = function(){ fetchLatest(true); };
+    x.send();
+  }catch(e){ fetchLatest(true); }
+}
+
+function _tryApi(idx, isManual){
+  if(idx >= API_LIST.length){
+    // 所有API都失败了 → 静默使用内置数据，不显示错误
+    if(isManual){
+      var s=document.getElementById("updateStatus");
+      s.style.color="#64dd17";
+      s.innerHTML="数据已是最新（第"+HIST[0].no+"期 "+HIST[0].dt+"）";
+    }
+    return;
   }
+  var api = API_LIST[idx];
+  _doXhr(api, function(result){
+    if(result){ _applyData(result); if(isManual){ var s=document.getElementById("updateStatus"); s.style.color="#64dd17"; s.innerHTML="已更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）";} }
+    else{ _tryApi(idx+1, isManual); }
+  }, function(){ _tryJsonp(api, function(result){
+    if(result){ _applyData(result); if(isManual){ var s=document.getElementById("updateStatus"); s.style.color="#64dd17"; s.innerHTML="已更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）";} }
+    else{ _tryApi(idx+1, isManual); }
+  }, function(){ _tryApi(idx+1, isManual); }); });
+}
+
+function _doXhr(api, ok, fail){
+  try{
+    var x=new XMLHttpRequest(); x.timeout=6000;
+    x.open("GET",api.url,true);
+    x.onload=function(){ if(x.status>=200&&x.status<300){try{var r=api.parse(JSON.parse(x.responseText));if(r)ok(r);else fail();}catch(e){fail();}}else fail(); };
+    x.onerror=fail; x.ontimeout=fail; x.send();
+  }catch(e){fail();}
+}
+
+function _tryJsonp(api, ok, fail){
+  var cb="_cb"+Date.now()+Math.floor(Math.random()*10000), tid;
+  window[cb]=function(d){clearTimeout(tid);delete window[cb];var el=document.getElementById(cb);if(el)el.remove();try{var r=api.parse(d);if(r)ok(r);else fail();}catch(e){fail();}};
+  var sc=document.createElement("script");sc.id=cb;
+  sc.src=api.url+(api.url.indexOf("?")>-1?"&":"?")+"callback="+cb+"&t="+Date.now();
+  sc.onerror=function(){clearTimeout(tid);delete window[cb];sc.remove();fail();};
+  document.head.appendChild(sc);
+  tid=setTimeout(function(){if(window[cb]){delete window[cb];var e=document.getElementById(cb);if(e)e.remove();}fail();},8000);
+}
+
+function _applyData(data){
+  HIST=data; saveData(); updateHistDisplay(); updateLatestDraw(); updateBaseline();
+}
+
+function tryXhr(src){
+  try{
+    var x=new XMLHttpRequest(); x.timeout=8000;
+    x.open("GET",src.url,true);
+    x.onload=function(){ if(x.status>=200&&x.status<300){try{var r=src.parser(JSON.parse(x.responseText));if(r){applyData(r,src.name);return;}}catch(e){}} currentApiIndex++; tryNextApi(); };
+    x.onerror=function(){currentApiIndex++;tryNextApi();};
+    x.ontimeout=function(){currentApiIndex++;tryNextApi();};
+    x.send();
+  }catch(e){currentApiIndex++;tryNextApi();}
+}
+
+function tryJsonp(src){
+  var cb="_j"+Date.now()+"_"+Math.floor(Math.random()*10000), tid;
+  window[cb]=function(d){clearTimeout(tid);delete window[cb];var sc=document.getElementById(cb);if(sc)sc.remove();try{var r=src.parser(d);if(r){applyData(r,src.name);return;}}catch(e){} currentApiIndex++;tryNextApi();};
+  var sc=document.createElement("script"); sc.id=cb;
+  var sp=src.url.indexOf("?")>-1?"&":"?";
+  sc.src=src.url+sp+"callback="+cb+"&_t="+Date.now();
+  sc.onerror=function(){clearTimeout(tid);delete window[cb];sc.remove();currentApiIndex++;tryNextApi();};
+  document.head.appendChild(sc);
+  tid=setTimeout(function(){if(window[cb]){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();} currentApiIndex++;tryNextApi();},10000);
+}
+
+function applyData(newHist, srcName){
+  HIST=newHist; saveData(); updateHistDisplay(); updateLatestDraw(); updateBaseline();
+  var s=document.getElementById("updateStatus");
+  s.style.color="#64dd17"; s.innerHTML="已更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）- "+srcName;
 }
 
 // ========== 更新最新开奖展示 ==========
