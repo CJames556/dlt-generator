@@ -919,11 +919,22 @@ function fetchLatest(manual){
   _tryApi(0, isManual);
 }
 
-// 手动刷新：优先JSON，失败则尝试API
+// 手动刷新：优先实时API（体彩官网），全部失败后回退JSON缓存
 function refreshData(){
   var s = document.getElementById("updateStatus");
   s.style.color = "#ffd93d";
-  s.innerHTML = "正在同步最新开奖数据...";
+  s.innerHTML = "🔄 正在从体彩官网实时获取最新开奖...";
+  // 先试实时API，全失败则回退JSON
+  _tryApi(0, true, function(){
+    _loadJsonAsFallback();
+  });
+}
+
+// JSON缓存兜底
+function _loadJsonAsFallback(){
+  var s = document.getElementById("updateStatus");
+  s.style.color = "#ffd93d";
+  s.innerHTML = "实时接口暂不可用，正在从缓存同步...";
   try{
     var x = new XMLHttpRequest();
     x.timeout = 5000;
@@ -939,23 +950,33 @@ function refreshData(){
             updateLatestDraw();
             updateBaseline();
             s.style.color = "#64dd17";
-            s.innerHTML = "✅ 已同步至第" + data.latestIssue + "期（" + data.latestDate + "）<br><span style='color:#888;font-size:11px'>数据同步时间: " + data.lastUpdated + "</span>";
+            s.innerHTML = "✅ 已同步至第" + data.latestIssue + "期（" + data.latestDate + "）<br><span style='color:#888;font-size:11px'>⚠️ 实时接口不可用，使用缓存数据（同步: " + data.lastUpdated + "）</span>";
             return;
           }
         }catch(e){}
       }
-      // JSON失败，尝试旧API
-      fetchLatest(true);
+      s.style.color = "#f44336";
+      s.innerHTML = "❌ 更新失败：实时接口和缓存均不可用，请稍后重试";
     };
-    x.onerror = function(){ fetchLatest(true); };
-    x.ontimeout = function(){ fetchLatest(true); };
+    x.onerror = function(){
+      s.style.color = "#f44336";
+      s.innerHTML = "❌ 更新失败：网络错误，请稍后重试";
+    };
+    x.ontimeout = function(){
+      s.style.color = "#f44336";
+      s.innerHTML = "❌ 更新超时，请稍后重试";
+    };
     x.send();
-  }catch(e){ fetchLatest(true); }
+  }catch(e){
+    s.style.color = "#f44336";
+    s.innerHTML = "❌ 更新失败，请稍后重试";
+  }
 }
 
-function _tryApi(idx, isManual){
+function _tryApi(idx, isManual, onAllFail){
   if(idx >= API_LIST.length){
-    // 所有API都失败了 → 静默使用内置数据，不显示错误
+    // 所有API都失败了
+    if(onAllFail){ onAllFail(); return; }
     if(isManual){
       var s=document.getElementById("updateStatus");
       s.style.color="#64dd17";
@@ -965,12 +986,12 @@ function _tryApi(idx, isManual){
   }
   var api = API_LIST[idx];
   _doXhr(api, function(result){
-    if(result){ _applyData(result); if(isManual){ var s=document.getElementById("updateStatus"); s.style.color="#64dd17"; s.innerHTML="已更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）";} }
-    else{ _tryApi(idx+1, isManual); }
+    if(result){ _applyData(result); if(isManual){ var s=document.getElementById("updateStatus"); s.style.color="#64dd17"; s.innerHTML="✅ 实时更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）";} }
+    else{ _tryApi(idx+1, isManual, onAllFail); }
   }, function(){ _tryJsonp(api, function(result){
-    if(result){ _applyData(result); if(isManual){ var s=document.getElementById("updateStatus"); s.style.color="#64dd17"; s.innerHTML="已更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）";} }
-    else{ _tryApi(idx+1, isManual); }
-  }, function(){ _tryApi(idx+1, isManual); }); });
+    if(result){ _applyData(result); if(isManual){ var s=document.getElementById("updateStatus"); s.style.color="#64dd17"; s.innerHTML="✅ 实时更新至第"+HIST[0].no+"期（"+HIST[0].dt+"）";} }
+    else{ _tryApi(idx+1, isManual, onAllFail); }
+  }, function(){ _tryApi(idx+1, isManual, onAllFail); }); });
 }
 
 function _doXhr(api, ok, fail){
