@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>M6大乐透生成器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#0a0e1a;color:#e0e0e0;padding:10px;max-width:800px;margin:0 auto}
+.header{text-align:center;padding:16px 0;background:linear-gradient(135deg,#1a237e,#311b92);border-radius:12px;margin-bottom:14px}
+.header h1{font-size:20px;color:#ffd93d;margin-bottom:6px}
+.header p{font-size:12px;color:#aaa}
+.card{background:#111633;border:1px solid #1e2a50;border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-size:15px;font-weight:700;color:#ffd93d;margin-bottom:10px}
+.baseline-section{margin-bottom:8px}
+.baseline-section label{display:block;font-size:12px;color:#aaa;margin-bottom:3px}
+.baseline-section input{width:100%;padding:8px;border:1px solid #1e2a50;border-radius:6px;background:#0d1230;color:#e0e0e0;font-size:14px;outline:none}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.btn{padding:10px 14px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;flex:1;min-width:120px}
+.btn-update{background:linear-gradient(135deg,#00c853,#64dd17);color:#fff}
+.btn-generate{background:linear-gradient(135deg,#ff6b35,#e85d26);color:#fff}
+.btn-copy{background:linear-gradient(135deg,#00bcd4,#0097a7);color:#fff}
+.btn-manual{background:#1e2a50;color:#ffd93d;border:1px solid #ffd93d}
+.status{font-size:12px;margin-top:6px;display:block}
+.history-toggle{color:#56c5ff;font-size:13px;cursor:pointer;margin-top:8px;user-select:none}
+.history-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px;display:none}
+.history-table th{background:#1e2a50;color:#ffd93d;padding:6px;font-size:11px}
+.history-table td{padding:6px;text-align:center;border-bottom:1px solid #1e2a50}
+.result-card{background:#0d1230;border:1px solid #1e2a50;border-radius:8px;padding:10px;margin-bottom:8px}
+.result-card .title{font-size:13px;color:#ffd93d;margin-bottom:4px}
+.result-card .nums{font-size:15px;font-weight:700}
+.result-card .nums .front{color:#ff8a50}
+.result-card .nums .back{color:#56c5ff;margin-left:8px}
+.result-card .score{font-size:11px;color:#aaa;margin-top:3px}
+.params-panel{background:#0d1230;border:1px solid #1e2a50;border-radius:8px;padding:10px;margin-top:10px;display:none}
+.params-panel.show{display:block}
+.param-row{display:flex;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.param-row label{font-size:12px;color:#aaa;width:100px;flex-shrink:0}
+.param-row input{width:60px;padding:4px;border:1px solid #1e2a50;border-radius:4px;background:#111633;color:#e0e0e0;font-size:12px;text-align:center}
+.param-row span{font-size:11px;color:#888;margin-left:4px}
+.param-section{font-size:13px;color:#ffd93d;margin:10px 0 6px 0;font-weight:700}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:999;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#111633;border:1px solid #ffd93d;border-radius:14px;padding:20px;width:90%;max-width:340px}
+.modal-box h3{color:#ffd93d;font-size:15px;margin-bottom:12px}
+.modal-box input{width:100%;padding:8px;border:1px solid #1e2a50;border-radius:6px;background:#0d1230;color:#e0e0e0;font-size:14px;margin-bottom:10px;outline:none}
+.modal-box label{font-size:12px;color:#aaa;display:block;margin-bottom:3px}
+.modal-btns{display:flex;gap:10px;margin-top:14px}
+.modal-btns button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.copy-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#64dd17;padding:14px 24px;border-radius:10px;font-size:15px;font-weight:700;z-index:1000;display:none}
+@media(max-width:480px){
+  body{padding:6px}
+  .header h1{font-size:17px}
+  .btn{font-size:13px;padding:9px 10px}
+  .param-row label{width:90px;font-size:11px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎱 M6大乐透智能生成器</h1>
+  <p>基于M6预测模型 · 一键生成投注方案</p>
+</div>
+
+<!-- 基准期设置 -->
+<div class="card">
+  <div class="card-title">📅 基准期（上期开奖号码）</div>
+  <div class="baseline-section">
+    <label>前区（5个号码，空格分隔）:</label>
+    <input type="text" id="bf" value="1 4 10 23 25" inputmode="numeric">
+  </div>
+  <div class="baseline-section">
+    <label>后区（2个号码，空格分隔）:</label>
+    <input type="text" id="bb" value="1 12" inputmode="numeric">
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-update" ontouchstart="" onclick="fetchLatest()">🔄 联网更新</button>
+    <button class="btn btn-manual" ontouchstart="" onclick="showManual()">✏️ 手动输入</button>
+  </div>
+  <span class="status" id="updateStatus"></span>
+  <div class="history-toggle" ontouchstart="" onclick="toggleHist()">查看最近10期开奖记录 ▼</div>
+  <table class="history-table" id="htbl">
+    <thead><tr><th>期号</th><th>日期</th><th>前区</th><th>后区</th></tr></thead>
+    <tbody id="htbody"></tbody>
+  </table>
+</div>
+
+<!-- 参数设置 -->
+<div class="card">
+  <div class="card-title">
+    ⚙️ M6模型参数设置
+    <span ontouchstart="" onclick="toggleParams()" style="font-size:13px;color:#56c5ff;cursor:pointer;font-weight:400" id="paramsToggle">（展开 ▼）</span>
+  </div>
+  <div class="params-panel" id="paramsPanel">
+    <div class="param-section">一、硬过滤规则</div>
+    <div class="param-row"><label>前区和值最小:</label><input type="number" id="p_sumMin" value="70"><span>推荐70</span></div>
+    <div class="param-row"><label>前区和值最大:</label><input type="number" id="p_sumMax" value="130"><span>推荐130</span></div>
+    <div class="param-row"><label>同尾最多:</label><input type="number" id="p_sameTail" value="2"><span>个</span></div>
+    <div class="param-row"><label>红蓝差最小:</label><input type="number" id="p_rbMin" value="55"><span>推荐55</span></div>
+    <div class="param-row"><label>红蓝差最大:</label><input type="number" id="p_rbMax" value="110"><span>推荐110</span></div>
+    <div class="param-section">二、前区结构规则</div>
+    <div class="param-row"><label>近5期最少覆盖:</label><input type="number" id="p_poolMin" value="2"><span>个号码</span></div>
+    <div class="param-row"><label>含重号注数:</label><input type="number" id="p_repeat" value="5"><span>/10注</span></div>
+    <div class="param-row"><label>含邻号注数:</label><input type="number" id="p_neighbor" value="6"><span>/10注</span></div>
+    <div class="param-row"><label>含连号注数:</label><input type="number" id="p_continue" value="2"><span>/10注</span></div>
+    <div class="param-row"><label>含2重结构注数:</label><input type="number" id="p_2repeat" value="3"><span>/10注</span></div>
+    <div class="param-row"><label>含3重结构注数:</label><input type="number" id="p_3repeat" value="1"><span>/10注</span></div>
+    <div class="param-section">三、后区规则</div>
+    <div class="param-row"><label>冰封近5期:</label><input type="checkbox" id="p_freeze" checked></div>
+    <div class="param-row"><label>后区胆码:</label><input type="checkbox" id="p_backCode" checked></div>
+    <div class="param-row"><label>后区一奇一偶:</label><input type="checkbox" id="p_backOdd" checked></div>
+    <div class="param-row"><label>后区一大一小:</label><input type="checkbox" id="p_backSize" checked></div>
+    <div style="margin-top:10px">
+      <button class="btn btn-update" ontouchstart="" onclick="resetParams()" style="font-size:13px;padding:8px 14px">重置为M6默认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 生成按钮 -->
+<div class="card">
+  <button class="btn btn-generate" ontouchstart="" onclick="generate()" style="width:100%;font-size:16px;padding:14px">🎲 按照M6模型生成10注号码</button>
+</div>
+
+<!-- 结果展示 -->
+<div id="results"></div>
+
+<!-- 复制按钮 -->
+<div class="card" id="copyCard" style="display:none">
+  <button class="btn btn-copy" ontouchstart="" onclick="copyAll()" style="width:100%;font-size:15px;padding:12px">📋 一键复制全部投注方案</button>
+</div>
+
+<!-- 手动输入弹窗 -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal-box">
+    <h3>✏️ 手动输入最新开奖</h3>
+    <label>期号（如 26075）</label>
+    <input type="text" id="manualNo" inputmode="numeric">
+    <label>开奖日期（如 2026-07-07）</label>
+    <input type="text" id="manualDt" inputmode="numeric">
+    <label>前区号码（5个，空格分隔）</label>
+    <input type="text" id="manualFront" placeholder="如: 1 4 10 23 25" inputmode="numeric">
+    <label>后区号码（2个，空格分隔）</label>
+    <input type="text" id="manualBack" placeholder="如: 1 12" inputmode="numeric">
+    <div class="modal-btns">
+      <button ontouchstart="" onclick="confirmManual()" style="background:linear-gradient(135deg,#ff6b35,#e85d26);color:#fff">确认更新</button>
+      <button ontouchstart="" onclick="closeManual()" style="background:#1e2a50;color:#aaa;border:1px solid #1e2a50">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 复制提示 -->
+<div class="copy-toast" id="copyToast">✅ 已复制到剪贴板</div>
+
+<script>
+// ========== 数据 ==========
+var HIST = [
+  {no:"26074",dt:"2026-07-05",f:[1,4,10,23,25],b:[1,12]},
+  {no:"26073",dt:"2026-07-02",f:[7,9,16,20,24],b:[3,8]},
+  {no:"26072",dt:"2026-06-29",f:[5,11,19,22,29],b:[2,12]},
+  {no:"26071",dt:"2026-06-26",f:[3,8,14,18,27],b:[5,11]},
+  {no:"26070",dt:"2026-06-23",f:[2,10,17,25,33],b:[4,9]},
+  {no:"26069",dt:"2026-06-20",f:[6,13,21,28,34],b:[1,7]},
+  {no:"26068",dt:"2026-06-17",f:[4,12,15,26,35],b:[3,10]},
+  {no:"26067",dt:"2026-06-14",f:[1,9,18,23,31],b:[6,11]},
+  {no:"26066",dt:"2026-06-11",f:[8,14,20,27,32],b:[2,8]},
+  {no:"26065",dt:"2026-06-08",f:[3,11,16,25,30],b:[5,12]}
+];
+
+// ========== 初始化 ==========
+window.addEventListener("DOMContentLoaded", function(){
+  updateHistDisplay();
+});
+
+// ========== 历史展示 ==========
+function updateHistDisplay(){
+  var h = HIST[0];
+  document.getElementById("bf").value = h.f.join(" ");
+  document.getElementById("bb").value = h.b.join(" ");
+  var tbody = document.getElementById("htbody");
+  var html = "";
+  for(var i = 0; i < HIST.length; i++){
+    var d = HIST[i];
+    var fStr = "";
+    for(var j = 0; j < d.f.length; j++){
+      fStr += "<span style='color:#ff8a50'>" + String(d.f[j]).padStart(2,"0") + "</span> ";
+    }
+    var bStr = "";
+    for(var k = 0; k < d.b.length; k++){
+      bStr += "<span style='color:#56c5ff'>" + String(d.b[k]).padStart(2,"0") + "</span> ";
+    }
+    html += "<tr><td>" + d.no + "</td><td>" + d.dt + "</td><td>" + fStr + "</td><td>" + bStr + "</td></tr>";
+  }
+  tbody.innerHTML = html;
+}
+
+function toggleHist(){
+  var tbl = document.getElementById("htbl");
+  if(tbl.style.display === "table"){
+    tbl.style.display = "none";
+  } else {
+    tbl.style.display = "table";
+  }
+}
+
+// ========== 参数面板 ==========
+function toggleParams(){
+  var panel = document.getElementById("paramsPanel");
+  var toggle = document.getElementById("paramsToggle");
+  if(panel.className.indexOf("show") >= 0){
+    panel.className = "params-panel";
+    toggle.innerHTML = "（展开 ▼）";
+  } else {
+    panel.className = "params-panel show";
+    toggle.innerHTML = "（收起 ▲）";
+  }
+}
+
+function resetParams(){
+  document.getElementById("p_sumMin").value = 70;
+  document.getElementById("p_sumMax").value = 130;
+  document.getElementById("p_sameTail").value = 2;
+  document.getElementById("p_rbMin").value = 55;
+  document.getElementById("p_rbMax").value = 110;
+  document.getElementById("p_poolMin").value = 2;
+  document.getElementById("p_repeat").value = 5;
+  document.getElementById("p_neighbor").value = 6;
+  document.getElementById("p_continue").value = 2;
+  document.getElementById("p_2repeat").value = 3;
+  document.getElementById("p_3repeat").value = 1;
+  document.getElementById("p_freeze").checked = true;
+  document.getElementById("p_backCode").checked = true;
+  document.getElementById("p_backOdd").checked = true;
+  document.getElementById("p_backSize").checked = true;
+  alert("已重置为M6默认参数");
+}
+
+// ========== 手动输入 ==========
+function showManual(){
+  var today = new Date();
+  var dtStr = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
+  document.getElementById("manualDt").value = dtStr;
+  if(HIST.length > 0){
+    var lastNo = HIST[0].no;
+    document.getElementById("manualNo").value = String(Number(lastNo) + 1);
+  }
+  document.getElementById("manualModal").className = "modal-overlay show";
+}
+
+function closeManual(){
+  document.getElementById("manualModal").className = "modal-overlay";
+}
+
+function confirmManual(){
+  var no = document.getElementById("manualNo").value.trim();
+  var dt = document.getElementById("manualDt").value.trim();
+  var frontStr = document.getElementById("manualFront").value.trim();
+  var backStr = document.getElementById("manualBack").value.trim();
+
+  var front = frontStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 35});
+  var back = backStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 12});
+
+  if(front.length !== 5){ alert("前区需要5个有效号码(1-35)"); return }
+  if(back.length !== 2){ alert("后区需要2个有效号码(1-12)"); return }
+
+  // 去重排序
+  var fUnique = [];
+  var fMap = {};
+  for(var i = 0; i < front.length; i++){
+    if(!fMap[front[i]]){ fMap[front[i]] = true; fUnique.push(front[i]) }
+  }
+  var bUnique = [];
+  var bMap = {};
+  for(var j = 0; j < back.length; j++){
+    if(!bMap[back[j]]){ bMap[back[j]] = true; bUnique.push(back[j]) }
+  }
+
+  HIST.unshift({no:no, dt:dt, f:fUnique.sort(function(a,b){return a-b}), b:bUnique.sort(function(a,b){return a-b})});
+  if(HIST.length > 10) HIST.length = 10;
+  updateHistDisplay();
+
+  var statusEl = document.getElementById("updateStatus");
+  statusEl.style.color = "#64dd17";
+  statusEl.innerHTML = "✅ 已更新至第" + no + "期（" + dt + "）";
+
+  closeManual();
+}
+
+// ========== 联网更新 ==========
+function fetchLatest(){
+  var statusEl = document.getElementById("updateStatus");
+  statusEl.style.color = "#ffd93d";
+  statusEl.innerHTML = "正在获取最新开奖数据...";
+
+  // 使用XMLHttpRequest代替fetch，兼容性更好
+  var urls = [
+    "https://api.api68.com/pks/getPksHistoryList?lotCode=10037&p=1&limit=5",
+    "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=5&isVerify=1&pageNo=1"
+  ];
+
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.timeout = 6000;
+    xhr.open("GET", urls[0], true);
+    xhr.onload = function(){
+      if(xhr.status === 200){
+        try {
+          var data = JSON.parse(xhr.responseText);
+          // 根据实际接口格式解析
+          // 这里需要根据实际返回格式调整
+          alert("接口返回: " + xhr.responseText.substring(0, 100));
+        } catch(e){}
+      }
+      // 接口失败，弹出手动输入
+      statusEl.style.color = "#ff8a80";
+      statusEl.innerHTML = "自动获取失败，请手动输入 ↓";
+      setTimeout(function(){ showManual() }, 500);
+    };
+    xhr.onerror = function(){
+      statusEl.style.color = "#ff8a80";
+      statusEl.innerHTML = "自动获取失败，请手动输入 ↓";
+      setTimeout(function(){ showManual() }, 500);
+    };
+    xhr.ontimeout = function(){
+      statusEl.style.color = "#ff8a80";
+      statusEl.innerHTML = "自动获取超时，请手动输入 ↓";
+      setTimeout(function(){ showManual() }, 500);
+    };
+    xhr.send();
+  } catch(e){
+    statusEl.style.color = "#ff8a80";
+    statusEl.innerHTML = "自动获取失败，请手动输入 ↓";
+    setTimeout(function(){ showManual() }, 500);
+  }
+}
+
+// ========== 生成号码 ==========
+function generate(){
+  // 读取基准期
+  var bfStr = document.getElementById("bf").value.trim();
+  var bbStr = document.getElementById("bb").value.trim();
+  var baseFront = bfStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 35});
+  var baseBack = bbStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 12});
+
+  if(baseFront.length !== 5){ alert("基准期前区需要5个号码"); return }
+  if(baseBack.length !== 2){ alert("基准期后区需要2个号码"); return }
+
+  // 读取参数
+  var p = {
+    sumMin: Number(document.getElementById("p_sumMin").value),
+    sumMax: Number(document.getElementById("p_sumMax").value),
+    sameTail: Number(document.getElementById("p_sameTail").value),
+    rbMin: Number(document.getElementById("p_rbMin").value),
+    rbMax: Number(document.getElementById("p_rbMax").value),
+    poolMin: Number(document.getElementById("p_poolMin").value),
+    repeat: Number(document.getElementById("p_repeat").value),
+    neighbor: Number(document.getElementById("p_neighbor").value),
+    cont: Number(document.getElementById("p_continue").value),
+    r2: Number(document.getElementById("p_2repeat").value),
+    r3: Number(document.getElementById("p_3repeat").value),
+    freeze: document.getElementById("p_freeze").checked,
+    backCode: document.getElementById("p_backCode").checked,
+    backOdd: document.getElementById("p_backOdd").checked,
+    backSize: document.getElementById("p_backSize").checked
+  };
+
+  // 构建最近号码池
+  var pool5 = {};  // 近5期前区号码池
+  var pool10 = {}; // 近10期前区号码池
+  var backPool = {}; // 近4期后区号码池
+  var freezeBack = {}; // 近5期后区组合（冰封）
+
+  for(var i = 0; i < Math.min(5, HIST.length); i++){
+    for(var j = 0; j < HIST[i].f.length; j++){ pool5[HIST[i].f[j]] = true }
+    freezeBack[HIST[i].b.join(",")] = true;
+  }
+  for(var k = 0; k < Math.min(10, HIST.length); k++){
+    for(var l = 0; l < HIST[k].f.length; l++){ pool10[HIST[k].f[l]] = true }
+  }
+  for(var m = 0; m < Math.min(4, HIST.length); m++){
+    for(var n = 0; n < HIST[m].b.length; n++){ backPool[HIST[m].b[n]] = true }
+  }
+
+  // 生成候选号码
+  var candidates = [];
+  var maxTry = 50000;
+  var tried = 0;
+
+  while(candidates.length < 200 && tried < maxTry){
+    tried++;
+    var f = generateFront();
+    var b = generateBack();
+
+    // 硬过滤
+    if(!checkSum(f, p.sumMin, p.sumMax)) continue;
+    if(!checkOddEven(f)) continue;
+    if(!checkSize(f)) continue;
+    if(!checkTail(f, p.sameTail)) continue;
+    if(!checkZone(f)) continue;
+    if(!checkRB(f, b, p.rbMin, p.rbMax)) continue;
+
+    // 后区冰封
+    if(p.freeze && freezeBack[b.join(",")]) continue;
+
+    // 计算评分
+    var score = calcScore(f, b, baseFront, pool5, pool10, backPool, p);
+    candidates.push({f:f, b:b, score:score});
+  }
+
+  // 按评分排序
+  candidates.sort(function(a, b){ return b.score - a.score });
+
+  // 选择10注，保持结构分散
+  var result = selectDiverse(candidates, p);
+
+  // 展示结果
+  showResults(result);
+}
+
+function generateFront(){
+  var arr = [];
+  while(arr.length < 5){
+    var n = Math.floor(Math.random() * 35) + 1;
+    if(arr.indexOf(n) < 0) arr.push(n);
+  }
+  return arr.sort(function(a,b){return a-b});
+}
+
+function generateBack(){
+  var arr = [];
+  while(arr.length < 2){
+    var n = Math.floor(Math.random() * 12) + 1;
+    if(arr.indexOf(n) < 0) arr.push(n);
+  }
+  return arr.sort(function(a,b){return a-b});
+}
+
+function checkSum(f, min, max){
+  var s = 0;
+  for(var i = 0; i < f.length; i++) s += f[i];
+  return s >= min && s <= max;
+}
+
+function checkOddEven(f){
+  var odd = 0;
+  for(var i = 0; i < f.length; i++){ if(f[i] % 2 === 1) odd++ }
+  return (odd === 2 || odd === 3);
+}
+
+function checkSize(f){
+  var big = 0;
+  for(var i = 0; i < f.length; i++){ if(f[i] >= 18) big++ }
+  return (big === 2 || big === 3);
+}
+
+function checkTail(f, maxSame){
+  var tails = {};
+  for(var i = 0; i < f.length; i++){
+    var t = f[i] % 10;
+    tails[t] = (tails[t] || 0) + 1;
+    if(tails[t] > maxSame) return false;
+  }
+  return true;
+}
+
+function checkZone(f){
+  var z1 = 0, z2 = 0, z3 = 0;
+  for(var i = 0; i < f.length; i++){
+    if(f[i] <= 12) z1++;
+    else if(f[i] <= 24) z2++;
+    else z3++;
+  }
+  // 优先2+2+1, 2+1+2, 1+2+2
+  var arr = [z1, z2, z3].sort(function(a,b){return b-a});
+  return !(arr[0] >= 4 || arr[2] === 0);
+}
+
+function checkRB(f, b, min, max){
+  var s = 0;
+  for(var i = 0; i < f.length; i++) s += f[i];
+  var bs = b[0] + b[1];
+  var diff = s - bs;
+  return diff >= min && diff <= max;
+}
+
+function calcScore(f, b, baseFront, pool5, pool10, backPool, p){
+  var score = 0;
+
+  // 近期号码池 25%
+  var inPool = 0;
+  for(var i = 0; i < f.length; i++){
+    if(pool5[f[i]]) inPool++;
+  }
+  score += Math.min(inPool / p.poolMin, 1) * 25;
+
+  // 后区胆码 20%
+  var inBack = 0;
+  for(var j = 0; j < b.length; j++){
+    if(backPool[b[j]]) inBack++;
+  }
+  if(p.backCode) score += (inBack > 0 ? 20 : 0);
+  else score += 20;
+
+  // 红蓝和值差 15%
+  var s = 0;
+  for(var k = 0; k < f.length; k++) s += f[k];
+  var bs2 = b[0] + b[1];
+  var diff = s - bs2;
+  var mid = (p.rbMin + p.rbMax) / 2;
+  if(diff >= p.rbMin && diff <= p.rbMax){
+    score += 15 * (1 - Math.abs(diff - mid) / (mid - p.rbMin));
+  }
+
+  // 重号 10%
+  var repeat = 0;
+  for(var l = 0; l < f.length; l++){
+    if(baseFront.indexOf(f[l]) >= 0) repeat++;
+  }
+  score += (repeat === 1 ? 10 : 0);
+
+  // 邻号 10%
+  var neighbor = 0;
+  for(var m = 0; m < baseFront.length; m++){
+    var n = baseFront[m];
+    for(var o = 0; o < f.length; o++){
+      if(Math.abs(f[o] - n) === 1){ neighbor++; break }
+    }
+  }
+  score += (neighbor > 0 ? 10 : 0);
+
+  // 奇偶大小 10%
+  var odd = 0, big = 0;
+  for(var p2 = 0; p2 < f.length; p2++){
+    if(f[p2] % 2 === 1) odd++;
+    if(f[p2] >= 18) big++;
+  }
+  if((odd === 2 || odd === 3) && (big === 2 || big === 3)) score += 10;
+
+  // 连号 5%
+  var sorted = f.slice().sort(function(a,b){return a-b});
+  for(var q = 0; q < sorted.length - 1; q++){
+    if(sorted[q+1] - sorted[q] === 1){ score += 5; break }
+  }
+
+  // 三区比例 5%
+  var z1 = 0, z2 = 0, z3 = 0;
+  for(var r = 0; r < f.length; r++){
+    if(f[r] <= 12) z1++;
+    else if(f[r] <= 24) z2++;
+    else z3++;
+  }
+  if((z1 === 2 && z2 === 2 && z3 === 1) ||
+     (z1 === 2 && z2 === 1 && z3 === 2) ||
+     (z1 === 1 && z2 === 2 && z3 === 2)) score += 5;
+
+  return score;
+}
+
+function selectDiverse(candidates, p){
+  if(candidates.length === 0) return [];
+  var result = [];
+  var used = {};
+  var repeatCount = 0;
+  var neighborCount = 0;
+  var continueCount = 0;
+  var r2Count = 0;
+  var r3Count = 0;
+
+  for(var i = 0; i < candidates.length && result.length < 10; i++){
+    var c = candidates[i];
+    var key = c.f.join(",") + "|" + c.b.join(",");
+    if(used[key]) continue;
+    used[key] = true;
+
+    // 检查结构分散
+    var hasRepeat = false;
+    var bfStr2 = document.getElementById("bf").value.trim();
+    var baseFront2 = bfStr2.split(/[\s,，]+/).map(Number);
+    for(var j = 0; j < c.f.length; j++){
+      if(baseFront2.indexOf(c.f[j]) >= 0){ hasRepeat = true; break }
+    }
+    var hasNeighbor = false;
+    for(var k = 0; k < baseFront2.length; k++){
+      for(var l = 0; l < c.f.length; l++){
+        if(Math.abs(c.f[l] - baseFront2[k]) === 1){ hasNeighbor = true; break }
+      }
+      if(hasNeighbor) break;
+    }
+    var hasContinue = false;
+    var sorted2 = c.f.slice().sort(function(a,b){return a-b});
+    for(var m = 0; m < sorted2.length - 1; m++){
+      if(sorted2[m+1] - sorted2[m] === 1){ hasContinue = true; break }
+    }
+
+    // 结构计数控制
+    if(hasRepeat && repeatCount >= p.repeat) continue;
+    if(hasNeighbor && neighborCount >= p.neighbor) continue;
+    if(hasContinue && continueCount >= p.cont) continue;
+
+    if(hasRepeat) repeatCount++;
+    if(hasNeighbor) neighborCount++;
+    if(hasContinue) continueCount++;
+
+    result.push(c);
+  }
+
+  // 如果不够10注，放宽条件
+  for(var n = 0; n < candidates.length && result.length < 10; n++){
+    var c2 = candidates[n];
+    var key2 = c2.f.join(",") + "|" + c2.b.join(",");
+    if(!used[key2]){
+      used[key2] = true;
+      result.push(c2);
+    }
+  }
+
+  return result;
+}
+
+function showResults(result){
+  var container = document.getElementById("results");
+  var html = "";
+  for(var i = 0; i < result.length; i++){
+    var c = result[i];
+    var fStr = "";
+    for(var j = 0; j < c.f.length; j++){
+      fStr += "<span style='color:#ff8a50'>" + String(c.f[j]).padStart(2,"0") + "</span> ";
+    }
+    var bStr = "";
+    for(var k = 0; k < c.b.length; k++){
+      bStr += "<span style='color:#56c5ff'>" + String(c.b[k]).padStart(2,"0") + "</span> ";
+    }
+    html += "<div class='result-card'>" +
+      "<div class='title'>第" + (i+1) + "注</div>" +
+      "<div class='nums'><span class='front'>" + fStr + "</span><span class='back'>+ " + bStr + "</span></div>" +
+      "<div class='score'>评分: " + c.score.toFixed(1) + "</div>" +
+      "</div>";
+  }
+  container.innerHTML = html;
+
+  if(result.length > 0){
+    document.getElementById("copyCard").style.display = "block";
+  }
+
+  // 保存结果供复制
+  window._lastResult = result;
+}
+
+function copyAll(){
+  var result = window._lastResult;
+  if(!result || result.length === 0){ alert("请先生成号码"); return }
+
+  var bfStr3 = document.getElementById("bf").value.trim();
+  var now = new Date();
+  var timeStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + " " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
+
+  var text = "大乐透投注方案（M6模型）\n";
+  text += "生成时间：" + timeStr + "\n";
+  text += "基准期：" + HIST[0].no + "期\n";
+  text += "----------------------------\n";
+  for(var i = 0; i < result.length; i++){
+    var fStr2 = "";
+    for(var j = 0; j < result[i].f.length; j++){ fStr2 += String(result[i].f[j]).padStart(2,"0") + " " }
+    var bStr2 = "";
+    for(var k = 0; k < result[i].b.length; k++){ bStr2 += String(result[i].b[k]).padStart(2,"0") + " " }
+    text += "第" + (i+1) + "注: " + fStr2.trim() + " + " + bStr2.trim() + "\n";
+  }
+  text += "----------------------------\n";
+  text += "共" + result.length + "注，合计" + (result.length * 2) + "元\n";
+
+  // 复制
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      showToast();
+    });
+  } else {
+    // 兼容旧浏览器
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      showToast();
+    } catch(e){}
+    document.body.removeChild(ta);
+  }
+}
+
+function showToast(){
+  var toast = document.getElementById("copyToast");
+  toast.style.display = "block";
+  setTimeout(function(){
+    toast.style.display = "none";
+  }, 2000);
+}
+</script>
+</body>
+</html>
