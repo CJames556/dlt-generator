@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>M6大乐透生成器</title>
+<title>M6大乐透生成器 v7 - 修复版</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#0a0e1a;color:#e0e0e0;padding:10px;max-width:800px;margin:0 auto}
@@ -41,7 +41,7 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
 .param-section{font-size:13px;color:#ffd93d;margin:10px 0 6px 0;font-weight:700}
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:999;justify-content:center;align-items:center}
 .modal-overlay.show{display:flex}
-.modal-box{background:#111633;border:1px solid #ffd93d;border-radius:14px;padding:20px;width:90%;max-width:340px}
+.modal-box{background:#111633;border:1px solid #ffd93d;border-radius:14px;padding:20px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto}
 .modal-box h3{color:#ffd93d;font-size:15px;margin-bottom:12px}
 .modal-box input{width:100%;padding:8px;border:1px solid #1e2a50;border-radius:6px;background:#0d1230;color:#e0e0e0;font-size:14px;margin-bottom:10px;outline:none}
 .modal-box label{font-size:12px;color:#aaa;display:block;margin-bottom:3px}
@@ -54,13 +54,64 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
   .btn{font-size:13px;padding:9px 10px}
   .param-row label{width:90px;font-size:11px}
 }
+
+/* 中奖追踪样式 */
+.trust-card{background:linear-gradient(135deg,#1a237e,#311b92);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center}
+.trust-card .trust-num{font-size:36px;color:#ffd93d;font-weight:700}
+.trust-card .trust-label{font-size:13px;color:#aaa;margin-top:4px}
+
+/* 中奖记录卡片 */
+.win-record-card{background:#111633;border:1px solid #1e2a50;border-radius:10px;margin-bottom:10px;overflow:hidden;cursor:pointer;transition:all 0.3s}
+.win-record-card:hover{border-color:#ffd93d}
+.win-record-card.win{border-color:#64dd17;background:linear-gradient(135deg,#111633,#0d3a1a)}
+.win-record-header{display:flex;justify-content:space-between;align-items:center;padding:12px}
+.win-record-left{display:flex;flex-direction:column;gap:4px}
+.win-record-period{font-size:15px;font-weight:700;color:#ffd93d}
+.win-record-date{font-size:11px;color:#888}
+.win-record-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.win-record-prize{font-size:14px;color:#64dd17;font-weight:700}
+.win-record-drawdate{font-size:11px;color:#888}
+.win-badge{background:#64dd17;color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.wait-badge{background:#ffd93d;color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+
+/* 展开详情 */
+.win-record-detail{padding:0 12px 12px;display:none;border-top:1px solid #1e2a50}
+.win-record-detail.show{display:block}
+.detail-section{margin-top:10px}
+.detail-label{font-size:11px;color:#aaa;margin-bottom:4px}
+.detail-numbers{font-size:13px;line-height:2}
+.num-ball{display:inline-block;width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;margin:2px;font-size:12px;font-weight:700}
+.num-ball.front{background:#1e2a50;color:#ff8a50;border:1px solid #ff8a50}
+.num-ball.back{background:#1e2a50;color:#56c5ff;border:1px solid #56c5ff}
+.num-ball.hit-front{background:#64dd17;color:#000;border:2px solid #64dd17;animation:pulse 1.5s infinite}
+.num-ball.hit-back{background:#64dd17;color:#000;border:2px solid #64dd17;animation:pulse 1.5s infinite}
+.draw-result{background:#1a237e;padding:8px;border-radius:6px;margin-top:8px}
+
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(100,221,23,.7)}
+  70%{box-shadow:0 0 0 6px rgba(100,221,23,0)}
+  100%{box-shadow:0 0 0 0 rgba(100,221,23,0)}
+}
+
+.auto-save-tip{background:#0d1230;border:1px solid #64dd17;border-radius:8px;padding:8px;margin-bottom:8px;font-size:13px;color:#64dd17;text-align:center;display:none}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>🎱 M6大乐透智能生成器</h1>
-  <p>基于M6预测模型 · 一键生成投注方案</p>
+  <h1>🎱 M6大乐透智能生成器 v7</h1>
+  <p>基于M6预测模型 · 自动追踪中奖记录</p>
+</div>
+
+<!-- 模型信赖度展示 -->
+<div class="trust-card" id="trustCard">
+  <div class="trust-label">模型信赖度（累计中奖期数）</div>
+  <div class="trust-num" id="trustNum">0</div>
+  <div style="margin-top:8px;font-size:12px;color:#aaa">
+    <span id="trustWins">中奖: 0期</span> |
+    <span id="trustTotal">记录: 0期</span> |
+    <span id="trustRate">命中率: 0%</span>
+  </div>
 </div>
 
 <!-- 基准期设置 -->
@@ -122,12 +173,28 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
   <button class="btn btn-generate" ontouchstart="" onclick="generate()" style="width:100%;font-size:16px;padding:14px">🎲 按照M6模型生成10注号码</button>
 </div>
 
+<!-- 自动保存提示 -->
+<div class="auto-save-tip" id="autoSaveTip">
+  ✅ 已自动保存到中奖追踪
+</div>
+
 <!-- 结果展示 -->
 <div id="results"></div>
 
 <!-- 复制按钮 -->
 <div class="card" id="copyCard" style="display:none">
   <button class="btn btn-copy" ontouchstart="" onclick="copyAll()" style="width:100%;font-size:15px;padding:12px">📋 一键复制全部投注方案</button>
+</div>
+
+<!-- 中奖追踪记录 -->
+<div class="card" id="winTrackCard">
+  <div class="card-title">📊 中奖追踪记录</div>
+  <div id="winRecords"></div>
+  <div class="btn-row" style="margin-top:10px">
+    <button class="btn btn-update" ontouchstart="" onclick="showCheckModal()" style="font-size:13px;padding:8px">🎯 开奖匹配</button>
+    <button class="btn btn-manual" ontouchstart="" onclick="exportData()" style="font-size:13px;padding:8px">💾 导出数据</button>
+    <button class="btn btn-manual" ontouchstart="" onclick="importData()" style="font-size:13px;padding:8px">📂 导入数据</button>
+  </div>
 </div>
 
 <!-- 手动输入弹窗 -->
@@ -145,6 +212,24 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
     <div class="modal-btns">
       <button ontouchstart="" onclick="confirmManual()" style="background:linear-gradient(135deg,#ff6b35,#e85d26);color:#fff">确认更新</button>
       <button ontouchstart="" onclick="closeManual()" style="background:#1e2a50;color:#aaa;border:1px solid #1e2a50">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 开奖匹配弹窗 -->
+<div class="modal-overlay" id="checkModal">
+  <div class="modal-box">
+    <h3>🎯 开奖匹配</h3>
+    <label>期号（如 26075）</label>
+    <input type="text" id="checkPeriod" inputmode="numeric">
+    <label>开奖号码 - 前区（5个，空格分隔）</label>
+    <input type="text" id="checkFront" placeholder="如: 1 4 10 23 25" inputmode="numeric">
+    <label>开奖号码 - 后区（2个，空格分隔）</label>
+    <input type="text" id="checkBack" placeholder="如: 1 12" inputmode="numeric">
+    <div class="modal-btns">
+      <button ontouchstart="" onclick="autoFetchDraw()" style="background:linear-gradient(135deg,#00c853,#64dd17);color:#fff;font-size:13px">自动获取</button>
+      <button ontouchstart="" onclick="confirmCheck()" style="background:linear-gradient(135deg,#ff6b35,#e85d26);color:#fff">手动匹配</button>
+      <button ontouchstart="" onclick="closeCheckModal()" style="background:#1e2a50;color:#aaa;border:1px solid #1e2a50">取消</button>
     </div>
   </div>
 </div>
@@ -167,10 +252,470 @@ var HIST = [
   {no:"26065",dt:"2026-06-08",f:[3,11,16,25,30],b:[5,12]}
 ];
 
+// 中奖追踪记录
+var WIN_RECORDS = [];
+
 // ========== 初始化 ==========
 window.addEventListener("DOMContentLoaded", function(){
+  loadData();
+  cleanOldRecords();
   updateHistDisplay();
+  updateTrustDisplay();
+  renderWinRecords();
 });
+
+// ========== 本地存储 ==========
+function saveData(){
+  try {
+    var data = {
+      winRecords: WIN_RECORDS,
+      hist: HIST
+    };
+    localStorage.setItem("dlt_m6_data", JSON.stringify(data));
+  } catch(e){}
+}
+
+function loadData(){
+  try {
+    var str = localStorage.getItem("dlt_m6_data");
+    if(str){
+      var data = JSON.parse(str);
+      if(data.winRecords) WIN_RECORDS = data.winRecords;
+      if(data.hist) HIST = data.hist;
+    }
+  } catch(e){}
+}
+
+// ========== 清理过期记录 ==========
+function cleanOldRecords(){
+  if(WIN_RECORDS.length === 0) return;
+
+  var now = new Date();
+  var keep = [];
+
+  for(var i = 0; i < WIN_RECORDS.length; i++){
+    var rec = WIN_RECORDS[i];
+    if(rec.isChecked){
+      keep.push(rec);
+    } else {
+      var recordDate = new Date(rec.generateTime);
+      var daysDiff = (now - recordDate) / (1000 * 60 * 60 * 24);
+      if(daysDiff <= 3){
+        keep.push(rec);
+      }
+    }
+  }
+
+  if(keep.length !== WIN_RECORDS.length){
+    WIN_RECORDS = keep;
+    saveData();
+  }
+}
+
+// ========== 自动保存功能 ==========
+function autoSaveRecord(result){
+  if(!result || result.length === 0) return;
+
+  var period = "";
+  if(HIST.length > 0){
+    period = String(Number(HIST[0].no) + 1);
+  } else {
+    var now = new Date();
+    period = String(now.getFullYear()).slice(2) + String(now.getMonth() + 1).padStart(2,"0") + String(now.getDate()).padStart(2,"0");
+  }
+
+  var allNumbers = [];
+  for(var i = 0; i < result.length; i++){
+    allNumbers.push({f: result[i].f.slice(), b: result[i].b.slice()});
+  }
+
+  var existingIndex = -1;
+  for(var j = 0; j < WIN_RECORDS.length; j++){
+    if(WIN_RECORDS[j].period === period && !WIN_RECORDS[j].isChecked){
+      existingIndex = j;
+      break;
+    }
+  }
+
+  if(existingIndex >= 0){
+    var existingKeys = {};
+    for(var k = 0; k < WIN_RECORDS[existingIndex].allNumbers.length; k++){
+      existingKeys[WIN_RECORDS[existingIndex].allNumbers[k].f.join(",") + "|" + WIN_RECORDS[existingIndex].allNumbers[k].b.join(",")] = true;
+    }
+    for(var m = 0; m < allNumbers.length; m++){
+      var key = allNumbers[m].f.join(",") + "|" + allNumbers[m].b.join(",");
+      if(!existingKeys[key]){
+        WIN_RECORDS[existingIndex].allNumbers.push(allNumbers[m]);
+      }
+    }
+    WIN_RECORDS[existingIndex].generateTime = new Date().toISOString();
+  } else {
+    var record = {
+      period: period,
+      generateTime: new Date().toISOString(),
+      allNumbers: allNumbers,
+      betNumbers: [],
+      drawResult: null,
+      winDetails: [],
+      isChecked: false
+    };
+    WIN_RECORDS.unshift(record);
+  }
+
+  saveData();
+  updateTrustDisplay();
+  renderWinRecords();
+
+  var tip = document.getElementById("autoSaveTip");
+  tip.style.display = "block";
+  setTimeout(function(){
+    tip.style.display = "none";
+  }, 2000);
+}
+
+// ========== 更新信赖度展示 ==========
+function updateTrustDisplay(){
+  var wins = 0;
+  var total = 0;
+
+  for(var i = 0; i < WIN_RECORDS.length; i++){
+    if(WIN_RECORDS[i].isChecked){
+      total++;
+      if(WIN_RECORDS[i].winDetails && WIN_RECORDS[i].winDetails.length > 0){
+        wins++;
+      }
+    }
+  }
+
+  document.getElementById("trustNum").innerHTML = wins;
+  document.getElementById("trustWins").innerHTML = "中奖: " + wins + "期";
+  document.getElementById("trustTotal").innerHTML = "记录: " + total + "期";
+
+  var rate = total > 0 ? Math.round(wins / total * 100) : 0;
+  document.getElementById("trustRate").innerHTML = "命中率: " + rate + "%";
+}
+
+// ========== 渲染中奖记录 ==========
+function renderWinRecords(){
+  var container = document.getElementById("winRecords");
+  if(WIN_RECORDS.length === 0){
+    container.innerHTML = "<div style='font-size:13px;color:#888;text-align:center;padding:20px'>暂无记录，生成号码后会自动保存</div>";
+    return;
+  }
+
+  var html = "";
+  for(var i = 0; i < WIN_RECORDS.length; i++){
+    var rec = WIN_RECORDS[i];
+    var isWin = rec.isChecked && rec.winDetails && rec.winDetails.length > 0;
+    var cardClass = isWin ? "win-record-card win" : "win-record-card";
+
+    // 生成日期
+    var genDate = "";
+    if(rec.generateTime){
+      var d = new Date(rec.generateTime);
+      genDate = (d.getMonth()+1) + "月" + d.getDate() + "日生成";
+    }
+
+    // 右侧信息（中奖则显示开奖日期和金额）
+    var rightHtml = "";
+    if(isWin){
+      var drawDate = rec.drawDate || "";
+      var dateStr = drawDate ? drawDate.slice(5).replace("-", "月") + "日开奖" : "";
+      var prizeStr = "";
+      for(var p = 0; p < rec.winDetails.length; p++){
+        prizeStr += rec.winDetails[p].prize + " ";
+      }
+      rightHtml = "<div class='win-record-right'>" +
+        "<div class='win-badge'>🎉 中奖</div>" +
+        "<div class='win-record-prize'>" + prizeStr + "</div>" +
+        "<div class='win-record-drawdate'>" + dateStr + "</div>" +
+        "</div>";
+    } else if(rec.isChecked){
+      rightHtml = "<div class='win-record-right'>" +
+        "<div style='color:#888;font-size:12px'>未中奖</div>" +
+        "</div>";
+    } else {
+      rightHtml = "<div class='win-record-right'>" +
+        "<div class='wait-badge'>等待开奖</div>" +
+        "</div>";
+    }
+
+    // 展开后的详情 - 所有记录都可以展开查看生成的号码
+    var detailHtml = "<div class='win-record-detail' id='detail_" + i + "'>";
+
+    // 生成的号码列表
+    var numbersHtml = "";
+    for(var j = 0; j < rec.allNumbers.length; j++){
+      var nums = rec.allNumbers[j];
+      var fHtml = "";
+      var bHtml = "";
+
+      // 如果已开奖，标记命中号码
+      var hitFront = {};
+      var hitBack = {};
+      if(rec.isChecked && rec.drawResult){
+        for(var k = 0; k < nums.f.length; k++){
+          for(var l = 0; l < rec.drawResult.f.length; l++){
+            if(nums.f[k] === rec.drawResult.f[l]){
+              hitFront[nums.f[k]] = true;
+              break;
+            }
+          }
+        }
+        for(var m = 0; m < nums.b.length; m++){
+          for(var q = 0; q < rec.drawResult.b.length; q++){
+            if(nums.b[m] === rec.drawResult.b[q]){
+              hitBack[nums.b[m]] = true;
+              break;
+            }
+          }
+        }
+      }
+
+      for(var k = 0; k < nums.f.length; k++){
+        var isHit = hitFront[nums.f[k]];
+        fHtml += "<span class='num-ball " + (isHit ? "hit-front" : "front") + "'>" + String(nums.f[k]).padStart(2,"0") + "</span>";
+      }
+      for(var l = 0; l < nums.b.length; l++){
+        var isHit2 = hitBack[nums.b[l]];
+        bHtml += "<span class='num-ball " + (isHit2 ? "hit-back" : "back") + "'>" + String(nums.b[l]).padStart(2,"0") + "</span>";
+      }
+
+      // 检查是否中奖
+      var isWinNum = false;
+      if(rec.isChecked && rec.winDetails){
+        for(var r = 0; r < rec.winDetails.length; r++){
+          if(rec.winDetails[r].numbers.f.join(",") === nums.f.join(",") &&
+             rec.winDetails[r].numbers.b.join(",") === nums.b.join(",")){
+            isWinNum = true;
+            break;
+          }
+        }
+      }
+
+      numbersHtml += "<div style='margin-bottom:6px;" + (isWinNum ? "background:#0d3a1a;padding:4px;border-radius:6px" : "") + "'>" +
+        "<span style='font-size:11px;color:#aaa'>第" + (j+1) + "注:</span> " +
+        fHtml + " + " + bHtml +
+        (isWinNum ? " <span style='color:#64dd17;font-size:12px'>✓中奖</span>" : "") +
+        "</div>";
+    }
+
+    detailHtml += "<div class='detail-section'>" +
+      "<div class='detail-label'>生成号码（共" + rec.allNumbers.length + "注）</div>" +
+      numbersHtml +
+      "</div>";
+
+    // 如果已开奖，显示开奖结果
+    if(rec.isChecked && rec.drawResult){
+      var dfStr = "";
+      var dbStr = "";
+      for(var n = 0; n < rec.drawResult.f.length; n++){
+        dfStr += "<span class='num-ball front'>" + String(rec.drawResult.f[n]).padStart(2,"0") + "</span>";
+      }
+      for(var o = 0; o < rec.drawResult.b.length; o++){
+        dbStr += "<span class='num-ball back'>" + String(rec.drawResult.b[o]).padStart(2,"0") + "</span>";
+      }
+
+      detailHtml += "<div class='detail-section'>" +
+        "<div class='detail-label'>开奖结果</div>" +
+        "<div class='draw-result'>" + dfStr + " + " + dbStr + "</div>" +
+        "</div>";
+    }
+
+    detailHtml += "</div>";
+
+    html += "<div class='" + cardClass + "' onclick='toggleDetail(" + i + ")'>" +
+      "<div class='win-record-header'>" +
+      "<div class='win-record-left'>" +
+      "<div class='win-record-period'>第" + rec.period + "期</div>" +
+      "<div class='win-record-date'>" + genDate + "</div>" +
+      "</div>" +
+      rightHtml +
+      "</div>" +
+      detailHtml +
+      "</div>";
+  }
+  container.innerHTML = html;
+}
+
+function toggleDetail(index){
+  var el = document.getElementById("detail_" + index);
+  if(el){
+    el.classList.toggle("show");
+  }
+}
+
+// ========== 开奖匹配 ==========
+function showCheckModal(){
+  var now = new Date();
+  var dtStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
+  document.getElementById("checkPeriod").value = "";
+  document.getElementById("checkFront").value = "";
+  document.getElementById("checkBack").value = "";
+  document.getElementById("checkModal").className = "modal-overlay show";
+}
+
+function closeCheckModal(){
+  document.getElementById("checkModal").className = "modal-overlay";
+}
+
+function autoFetchDraw(){
+  alert("自动获取功能开发中，请手动输入开奖结果");
+}
+
+// 大乐透奖金对照表（2026年）
+var PRIZE_TABLE = {
+  "5_2": {name: "一等奖", amount: "浮动"},
+  "5_1": {name: "二等奖", amount: "浮动"},
+  "5_0": {name: "三等奖", amount: "10,000元"},
+  "4_2": {name: "四等奖", amount: "3,000元"},
+  "4_1": {name: "五等奖", amount: "300元"},
+  "3_2": {name: "六等奖", amount: "200元"},
+  "4_0": {name: "七等奖", amount: "100元"},
+  "3_1": {name: "八等奖", amount: "15元"},
+  "2_1": {name: "八等奖", amount: "15元"},
+  "3_0": {name: "九等奖", amount: "5元"},
+  "2_0": {name: "九等奖", amount: "5元"},
+  "1_2": {name: "九等奖", amount: "5元"},
+  "1_1": {name: "九等奖", amount: "5元"},
+  "0_2": {name: "九等奖", amount: "5元"}
+};
+
+function getPrizeName(frontHit, backHit){
+  var key = frontHit + "_" + backHit;
+  if(PRIZE_TABLE[key]) return PRIZE_TABLE[key];
+  return null;
+}
+
+function confirmCheck(){
+  var period = document.getElementById("checkPeriod").value.trim();
+  var frontStr = document.getElementById("checkFront").value.trim();
+  var backStr = document.getElementById("checkBack").value.trim();
+
+  if(!period){ alert("请输入期号"); return }
+  if(!frontStr || !backStr){ alert("请输入开奖号码"); return }
+
+  var front = frontStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 35});
+  var back = backStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 12});
+
+  if(front.length !== 5){ alert("前区需要5个号码"); return }
+  if(back.length !== 2){ alert("后区需要2个号码"); return }
+
+  // 查找该期记录
+  var found = false;
+  var recIndex = -1;
+  for(var i = 0; i < WIN_RECORDS.length; i++){
+    if(WIN_RECORDS[i].period === period){
+      found = true;
+      recIndex = i;
+      break;
+    }
+  }
+
+  if(!found){
+    alert("未找到第" + period + "期的记录，请先生成该期号码");
+    return;
+  }
+
+  // 匹配中奖
+  var winDetails = [];
+  for(var j = 0; j < WIN_RECORDS[recIndex].allNumbers.length; j++){
+    var nums = WIN_RECORDS[recIndex].allNumbers[j];
+    var frontHit = 0;
+    var backHit = 0;
+    for(var k = 0; k < nums.f.length; k++){
+      if(front.indexOf(nums.f[k]) >= 0) frontHit++;
+    }
+    for(var l = 0; l < nums.b.length; l++){
+      if(back.indexOf(nums.b[l]) >= 0) backHit++;
+    }
+    var prize = getPrizeName(frontHit, backHit);
+    if(prize){
+      winDetails.push({
+        numbers: nums,
+        frontHit: frontHit,
+        backHit: backHit,
+        prize: prize.name,
+        amount: prize.amount
+      });
+    }
+  }
+
+  // 获取开奖日期
+  var drawDate = "";
+  for(var m = 0; m < HIST.length; m++){
+    if(HIST[m].no === period){
+      drawDate = HIST[m].dt;
+      break;
+    }
+  }
+  if(!drawDate) drawDate = new Date().toISOString().slice(0,10);
+
+  WIN_RECORDS[recIndex].drawResult = {f: front, b: back};
+  WIN_RECORDS[recIndex].winDetails = winDetails;
+  WIN_RECORDS[recIndex].drawDate = drawDate;
+  WIN_RECORDS[recIndex].isChecked = true;
+
+  saveData();
+  updateTrustDisplay();
+  renderWinRecords();
+  closeCheckModal();
+
+  var winCount = winDetails.length;
+  if(winCount > 0){
+    var msg = "🎉 恭喜！第" + period + "期命中" + winCount + "注！\n\n";
+    for(var n = 0; n < winDetails.length; n++){
+      msg += "第" + (n+1) + "注: " + winDetails[n].prize + " (" + winDetails[n].amount + ")\n";
+    }
+    msg += "\n模型信赖度+1";
+    alert(msg);
+  } else {
+    alert("第" + period + "期未中奖，继续加油！");
+  }
+}
+
+// ========== 数据导出/导入 ==========
+function exportData(){
+  var data = {
+    winRecords: WIN_RECORDS,
+    hist: HIST,
+    exportTime: new Date().toISOString()
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "dlt_m6_backup_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(){
+  var input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      try {
+        var data = JSON.parse(ev.target.result);
+        if(data.winRecords) WIN_RECORDS = data.winRecords;
+        if(data.hist) HIST = data.hist;
+        saveData();
+        updateHistDisplay();
+        updateTrustDisplay();
+        renderWinRecords();
+        alert("✅ 数据导入成功！");
+      } catch(err){
+        alert("❌ 文件格式错误");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 
 // ========== 历史展示 ==========
 function updateHistDisplay(){
@@ -196,11 +741,7 @@ function updateHistDisplay(){
 
 function toggleHist(){
   var tbl = document.getElementById("htbl");
-  if(tbl.style.display === "table"){
-    tbl.style.display = "none";
-  } else {
-    tbl.style.display = "table";
-  }
+  tbl.style.display = (tbl.style.display === "table") ? "none" : "table";
 }
 
 // ========== 参数面板 ==========
@@ -241,8 +782,7 @@ function showManual(){
   var dtStr = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
   document.getElementById("manualDt").value = dtStr;
   if(HIST.length > 0){
-    var lastNo = HIST[0].no;
-    document.getElementById("manualNo").value = String(Number(lastNo) + 1);
+    document.getElementById("manualNo").value = String(Number(HIST[0].no) + 1);
   }
   document.getElementById("manualModal").className = "modal-overlay show";
 }
@@ -263,7 +803,6 @@ function confirmManual(){
   if(front.length !== 5){ alert("前区需要5个有效号码(1-35)"); return }
   if(back.length !== 2){ alert("后区需要2个有效号码(1-12)"); return }
 
-  // 去重排序
   var fUnique = [];
   var fMap = {};
   for(var i = 0; i < front.length; i++){
@@ -283,6 +822,7 @@ function confirmManual(){
   statusEl.style.color = "#64dd17";
   statusEl.innerHTML = "✅ 已更新至第" + no + "期（" + dt + "）";
 
+  saveData();
   closeManual();
 }
 
@@ -292,26 +832,17 @@ function fetchLatest(){
   statusEl.style.color = "#ffd93d";
   statusEl.innerHTML = "正在获取最新开奖数据...";
 
-  // 使用XMLHttpRequest代替fetch，兼容性更好
-  var urls = [
-    "https://api.api68.com/pks/getPksHistoryList?lotCode=10037&p=1&limit=5",
-    "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=5&isVerify=1&pageNo=1"
-  ];
-
   try {
     var xhr = new XMLHttpRequest();
     xhr.timeout = 6000;
-    xhr.open("GET", urls[0], true);
+    xhr.open("GET", "https://api.api68.com/pks/getPksHistoryList?lotCode=10037&p=1&limit=5", true);
     xhr.onload = function(){
       if(xhr.status === 200){
         try {
           var data = JSON.parse(xhr.responseText);
-          // 根据实际接口格式解析
-          // 这里需要根据实际返回格式调整
           alert("接口返回: " + xhr.responseText.substring(0, 100));
         } catch(e){}
       }
-      // 接口失败，弹出手动输入
       statusEl.style.color = "#ff8a80";
       statusEl.innerHTML = "自动获取失败，请手动输入 ↓";
       setTimeout(function(){ showManual() }, 500);
@@ -336,7 +867,6 @@ function fetchLatest(){
 
 // ========== 生成号码 ==========
 function generate(){
-  // 读取基准期
   var bfStr = document.getElementById("bf").value.trim();
   var bbStr = document.getElementById("bb").value.trim();
   var baseFront = bfStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 35});
@@ -345,7 +875,6 @@ function generate(){
   if(baseFront.length !== 5){ alert("基准期前区需要5个号码"); return }
   if(baseBack.length !== 2){ alert("基准期后区需要2个号码"); return }
 
-  // 读取参数
   var p = {
     sumMin: Number(document.getElementById("p_sumMin").value),
     sumMax: Number(document.getElementById("p_sumMax").value),
@@ -364,11 +893,10 @@ function generate(){
     backSize: document.getElementById("p_backSize").checked
   };
 
-  // 构建最近号码池
-  var pool5 = {};  // 近5期前区号码池
-  var pool10 = {}; // 近10期前区号码池
-  var backPool = {}; // 近4期后区号码池
-  var freezeBack = {}; // 近5期后区组合（冰封）
+  var pool5 = {};
+  var pool10 = {};
+  var backPool = {};
+  var freezeBack = {};
 
   for(var i = 0; i < Math.min(5, HIST.length); i++){
     for(var j = 0; j < HIST[i].f.length; j++){ pool5[HIST[i].f[j]] = true }
@@ -381,7 +909,6 @@ function generate(){
     for(var n = 0; n < HIST[m].b.length; n++){ backPool[HIST[m].b[n]] = true }
   }
 
-  // 生成候选号码
   var candidates = [];
   var maxTry = 50000;
   var tried = 0;
@@ -391,7 +918,6 @@ function generate(){
     var f = generateFront();
     var b = generateBack();
 
-    // 硬过滤
     if(!checkSum(f, p.sumMin, p.sumMax)) continue;
     if(!checkOddEven(f)) continue;
     if(!checkSize(f)) continue;
@@ -399,22 +925,20 @@ function generate(){
     if(!checkZone(f)) continue;
     if(!checkRB(f, b, p.rbMin, p.rbMax)) continue;
 
-    // 后区冰封
     if(p.freeze && freezeBack[b.join(",")]) continue;
 
-    // 计算评分
     var score = calcScore(f, b, baseFront, pool5, pool10, backPool, p);
     candidates.push({f:f, b:b, score:score});
   }
 
-  // 按评分排序
   candidates.sort(function(a, b){ return b.score - a.score });
 
-  // 选择10注，保持结构分散
   var result = selectDiverse(candidates, p);
 
-  // 展示结果
   showResults(result);
+
+  // 自动保存到中奖追踪
+  autoSaveRecord(result);
 }
 
 function generateFront(){
@@ -470,7 +994,6 @@ function checkZone(f){
     else if(f[i] <= 24) z2++;
     else z3++;
   }
-  // 优先2+2+1, 2+1+2, 1+2+2
   var arr = [z1, z2, z3].sort(function(a,b){return b-a});
   return !(arr[0] >= 4 || arr[2] === 0);
 }
@@ -486,14 +1009,12 @@ function checkRB(f, b, min, max){
 function calcScore(f, b, baseFront, pool5, pool10, backPool, p){
   var score = 0;
 
-  // 近期号码池 25%
   var inPool = 0;
   for(var i = 0; i < f.length; i++){
     if(pool5[f[i]]) inPool++;
   }
   score += Math.min(inPool / p.poolMin, 1) * 25;
 
-  // 后区胆码 20%
   var inBack = 0;
   for(var j = 0; j < b.length; j++){
     if(backPool[b[j]]) inBack++;
@@ -501,7 +1022,6 @@ function calcScore(f, b, baseFront, pool5, pool10, backPool, p){
   if(p.backCode) score += (inBack > 0 ? 20 : 0);
   else score += 20;
 
-  // 红蓝和值差 15%
   var s = 0;
   for(var k = 0; k < f.length; k++) s += f[k];
   var bs2 = b[0] + b[1];
@@ -511,14 +1031,12 @@ function calcScore(f, b, baseFront, pool5, pool10, backPool, p){
     score += 15 * (1 - Math.abs(diff - mid) / (mid - p.rbMin));
   }
 
-  // 重号 10%
   var repeat = 0;
   for(var l = 0; l < f.length; l++){
     if(baseFront.indexOf(f[l]) >= 0) repeat++;
   }
   score += (repeat === 1 ? 10 : 0);
 
-  // 邻号 10%
   var neighbor = 0;
   for(var m = 0; m < baseFront.length; m++){
     var n = baseFront[m];
@@ -528,7 +1046,6 @@ function calcScore(f, b, baseFront, pool5, pool10, backPool, p){
   }
   score += (neighbor > 0 ? 10 : 0);
 
-  // 奇偶大小 10%
   var odd = 0, big = 0;
   for(var p2 = 0; p2 < f.length; p2++){
     if(f[p2] % 2 === 1) odd++;
@@ -536,13 +1053,11 @@ function calcScore(f, b, baseFront, pool5, pool10, backPool, p){
   }
   if((odd === 2 || odd === 3) && (big === 2 || big === 3)) score += 10;
 
-  // 连号 5%
   var sorted = f.slice().sort(function(a,b){return a-b});
   for(var q = 0; q < sorted.length - 1; q++){
     if(sorted[q+1] - sorted[q] === 1){ score += 5; break }
   }
 
-  // 三区比例 5%
   var z1 = 0, z2 = 0, z3 = 0;
   for(var r = 0; r < f.length; r++){
     if(f[r] <= 12) z1++;
@@ -563,8 +1078,6 @@ function selectDiverse(candidates, p){
   var repeatCount = 0;
   var neighborCount = 0;
   var continueCount = 0;
-  var r2Count = 0;
-  var r3Count = 0;
 
   for(var i = 0; i < candidates.length && result.length < 10; i++){
     var c = candidates[i];
@@ -572,7 +1085,6 @@ function selectDiverse(candidates, p){
     if(used[key]) continue;
     used[key] = true;
 
-    // 检查结构分散
     var hasRepeat = false;
     var bfStr2 = document.getElementById("bf").value.trim();
     var baseFront2 = bfStr2.split(/[\s,，]+/).map(Number);
@@ -592,7 +1104,6 @@ function selectDiverse(candidates, p){
       if(sorted2[m+1] - sorted2[m] === 1){ hasContinue = true; break }
     }
 
-    // 结构计数控制
     if(hasRepeat && repeatCount >= p.repeat) continue;
     if(hasNeighbor && neighborCount >= p.neighbor) continue;
     if(hasContinue && continueCount >= p.cont) continue;
@@ -604,7 +1115,6 @@ function selectDiverse(candidates, p){
     result.push(c);
   }
 
-  // 如果不够10注，放宽条件
   for(var n = 0; n < candidates.length && result.length < 10; n++){
     var c2 = candidates[n];
     var key2 = c2.f.join(",") + "|" + c2.b.join(",");
@@ -642,7 +1152,6 @@ function showResults(result){
     document.getElementById("copyCard").style.display = "block";
   }
 
-  // 保存结果供复制
   window._lastResult = result;
 }
 
@@ -650,7 +1159,6 @@ function copyAll(){
   var result = window._lastResult;
   if(!result || result.length === 0){ alert("请先生成号码"); return }
 
-  var bfStr3 = document.getElementById("bf").value.trim();
   var now = new Date();
   var timeStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + " " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
 
@@ -668,13 +1176,11 @@ function copyAll(){
   text += "----------------------------\n";
   text += "共" + result.length + "注，合计" + (result.length * 2) + "元\n";
 
-  // 复制
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(function(){
       showToast();
     });
   } else {
-    // 兼容旧浏览器
     var ta = document.createElement("textarea");
     ta.value = text;
     ta.style.position = "fixed";
