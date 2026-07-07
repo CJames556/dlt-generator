@@ -32,7 +32,7 @@ BROWSER_HEADERS = {
 
 def fetch_from_sporttery():
     """数据源1: 体彩官方API"""
-    url = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=10&isVerify=1&pageNo=1"
+    url = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=50&isVerify=1&pageNo=1"
     headers = {
         **BROWSER_HEADERS,
         "Referer": "https://www.sporttery.cn/jc/jsq/dlt/",
@@ -69,7 +69,7 @@ def fetch_from_sporttery():
 
 def fetch_from_500com():
     """数据源2: 500.com HTML页面解析"""
-    url = "https://datachart.500.com/dlt/history/newinc/history.php?limit=10&sort=0"
+    url = "https://datachart.500.com/dlt/history/newinc/history.php?limit=50&sort=0"
     req = urllib.request.Request(url, headers=BROWSER_HEADERS)
     resp = urllib.request.urlopen(req, timeout=20)
     raw = resp.read()
