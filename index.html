@@ -187,11 +187,15 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
     <div class="param-row"><label>含连号注数:</label><input type="number" id="p_continue" value="2"><span>/10注</span></div>
     <div class="param-row"><label>含2重结构注数:</label><input type="number" id="p_2repeat" value="3"><span>/10注</span></div>
     <div class="param-row"><label>含3重结构注数:</label><input type="number" id="p_3repeat" value="1"><span>/10注</span></div>
+    <div class="param-row"><label>🚫 前区去重过滤（前50期）:</label><input type="checkbox" id="p_dupFilter50" checked><span>排除与前50期完全相同的5个前区号</span></div>
+    <div class="param-row"><label>📐 前区跨度限制:</label><input type="checkbox" id="p_spanOn" checked><span>最小</span><input type="number" id="p_spanMin" value="15" style="width:50px"><span>~最大</span><input type="number" id="p_spanMax" value="32" style="width:50px"></div>
+    <div class="param-row"><label>🧮 除3余数均衡:</label><input type="checkbox" id="p_mod3On" checked><span>每种余数(0/1/2)至少</span><input type="number" id="p_mod3Min" value="1" style="width:50px"><span>个</span></div>
     <div class="param-section">三、后区规则</div>
     <div class="param-row"><label>冰封近5期:</label><input type="checkbox" id="p_freeze" checked></div>
     <div class="param-row"><label>后区胆码:</label><input type="checkbox" id="p_backCode" checked></div>
     <div class="param-row"><label>后区一奇一偶:</label><input type="checkbox" id="p_backOdd" checked></div>
     <div class="param-row"><label>后区一大一小:</label><input type="checkbox" id="p_backSize" checked></div>
+    <div class="param-row"><label>↔️ 后区间距下限:</label><input type="checkbox" id="p_backGapOn" checked><span>间距≥</span><input type="number" id="p_backGapMin" value="2" style="width:50px" min="1" max="10"></div>
     <div style="margin-top:10px">
       <button class="btn btn-update" ontouchstart="" onclick="resetParams()" style="font-size:13px;padding:8px 14px">重置为M6默认</button>
     </div>
@@ -248,19 +252,26 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
 
 <!-- 开奖匹配弹窗 -->
 <div class="modal-overlay" id="checkModal">
-  <div class="modal-box">
-    <h3>🎯 开奖匹配</h3>
-    <label>期号（如 26075）</label>
-    <input type="text" id="checkPeriod" inputmode="numeric">
-    <label>开奖号码 - 前区（5个，空格分隔）</label>
-    <input type="text" id="checkFront" placeholder="如: 1 4 10 23 25" inputmode="numeric">
-    <label>开奖号码 - 后区（2个，空格分隔）</label>
-    <input type="text" id="checkBack" placeholder="如: 1 12" inputmode="numeric">
+  <div class="modal-box" style="max-width:380px">
+    <h3>🎯 开奖自动匹配</h3>
+    <p id="checkMsg" style="font-size:12px;color:#888;margin-bottom:8px"></p>
+    <label>选择要匹配的期号</label>
+    <select id="checkPeriodSelect" style="width:100%;padding:10px;border-radius:6px;border:1px solid #334;background:#0d1230;color:#ffd93d;font-size:15px;font-weight:bold;margin-bottom:10px"></select>
+    <div id="selectedInfo" style="font-size:12px;color:#56c5ff;margin-bottom:8px;text-align:center"></div>
     <div class="modal-btns">
-      <button ontouchstart="" onclick="autoFetchDraw()" style="background:linear-gradient(135deg,#00c853,#64dd17);color:#fff;font-size:13px">自动获取</button>
-      <button ontouchstart="" onclick="confirmCheck()" style="background:linear-gradient(135deg,#ff6b35,#e85d26);color:#fff">手动匹配</button>
-      <button ontouchstart="" onclick="closeCheckModal()" style="background:#1e2a50;color:#aaa;border:1px solid #1e2a50">取消</button>
+      <button ontouchstart="" onclick="doAutoMatch()" style="background:linear-gradient(135deg,#00c853,#64dd17);color:#fff;font-size:14px;font-weight:bold;width:100%;padding:10px">🔍 一键自动匹配选中期号</button>
     </div>
+    <div style="margin-top:10px;text-align:center">
+      <button ontouchstart="" onclick="toggleManualInput()" style="background:none;color:#aaa;border:none;font-size:12px;text-decoration:underline">或手动输入开奖号码</button>
+    </div>
+    <div id="manualInputArea" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #1e2a50">
+      <label>前区号码（5个，空格分隔）</label>
+      <input type="text" id="checkFront" placeholder="如: 01 06 16 18 26" inputmode="numeric">
+      <label>后区号码（2个，空格分隔）</label>
+      <input type="text" id="checkBack" placeholder="如: 04 10" inputmode="numeric">
+      <button ontouchstart="" onclick="doManualMatch()" style="background:linear-gradient(135deg,#ff6b35,#e85d26);color:#fff;width:100%;padding:8px;margin-top:5px;border-radius:6px">手动匹配</button>
+    </div>
+    <button ontouchstart="" onclick="closeCheckModal()" style="display:block;width:100%;margin-top:10px;background:#1e2a50;color:#aaa;border:1px solid #1e2a50;padding:8px;border-radius:6px">取消</button>
   </div>
 </div>
 
@@ -359,6 +370,20 @@ function loadData(){
       if(data.winRecords) WIN_RECORDS = data.winRecords;
       if(data.hist) HIST = data.hist;
     }
+    // 迁移：确保每条记录的每注号码都有score字段
+    var migrated = false;
+    for(var i = 0; i < WIN_RECORDS.length; i++){
+      var rec = WIN_RECORDS[i];
+      if(rec.allNumbers){
+        for(var j = 0; j < rec.allNumbers.length; j++){
+          if(rec.allNumbers[j].score == null){
+            rec.allNumbers[j].score = null;
+            migrated = true;
+          }
+        }
+      }
+    }
+    if(migrated) saveData();
   } catch(e){}
 }
 
@@ -402,7 +427,7 @@ function autoSaveRecord(result){
 
   var allNumbers = [];
   for(var i = 0; i < result.length; i++){
-    allNumbers.push({f: result[i].f.slice(), b: result[i].b.slice()});
+    allNumbers.push({f: result[i].f.slice(), b: result[i].b.slice(), score: result[i].score});
   }
 
   var existingIndex = -1;
@@ -569,9 +594,14 @@ function renderWinRecords(){
         }
       }
 
+      var scoreStr = (typeof nums.score === "number" && !isNaN(nums.score))
+        ? nums.score.toFixed(1)
+        : (nums.score === null ? "历史" : "—");
+
       numbersHtml += "<div style='margin-bottom:6px;" + (isWinNum ? "background:#0d3a1a;padding:4px;border-radius:6px" : "") + "'>" +
         "<span style='font-size:11px;color:#aaa'>第" + (j+1) + "注:</span> " +
         fHtml + " + " + bHtml +
+        " <span style='font-size:12px;color:#ffd93d;margin-left:6px;font-weight:700;background:#1a1a00;padding:1px 6px;border-radius:4px'>评分:" + scoreStr + "</span>" +
         (isWinNum ? " <span style='color:#64dd17;font-size:12px'>✓中奖</span>" : "") +
         "</div>";
     }
@@ -623,41 +653,118 @@ function toggleDetail(index){
 
 // ========== 开奖匹配 ==========
 function showCheckModal(){
-  var now = new Date();
-  var dtStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
-  document.getElementById("checkPeriod").value = "";
-  document.getElementById("checkFront").value = "";
-  document.getElementById("checkBack").value = "";
-  document.getElementById("checkModal").className = "modal-overlay show";
+  try {
+    // 找所有未匹配的记录
+    var unchecked = [];
+    for(var i = 0; i < WIN_RECORDS.length; i++){
+      if(!WIN_RECORDS[i].isChecked && WIN_RECORDS[i].allNumbers && WIN_RECORDS[i].allNumbers.length > 0){
+        unchecked.push(WIN_RECORDS[i]);
+      }
+    }
+    if(unchecked.length === 0){
+      var hasAny = WIN_RECORDS.length > 0;
+      if(hasAny){
+        alert("所有期号都已匹配完成！\n请先生成新一期的号码");
+      } else {
+        alert("暂无待匹配的记录\n\n请先点击「生成10注」生成号码后再来匹配");
+      }
+      return;
+    }
+
+    // 构建下拉选项（最新的放最前面）
+    var sel = document.getElementById("checkPeriodSelect");
+    sel.innerHTML = "";
+    for(var u = 0; u < unchecked.length; u++){
+      var rec = unchecked[u];
+      var opt = document.createElement("option");
+      opt.value = rec.period;
+      opt.textContent = "第" + rec.period + "期（共" + rec.allNumbers.length + "注）";
+      sel.appendChild(opt);
+    }
+
+    // 默认选中第一条（最新）
+    sel.selectedIndex = 0;
+    updateSelectedInfo(unchecked[0]);
+
+    // 更新提示信息
+    var msgEl = document.getElementById("checkMsg");
+    msgEl.innerHTML = "共有 <b>" + unchecked.length + "</b> 期待匹配，请在下方选择：";
+
+    document.getElementById("checkFront").value = "";
+    document.getElementById("checkBack").value = "";
+    document.getElementById("manualInputArea").style.display = "none";
+    document.getElementById("checkModal").className = "modal-overlay show";
+
+    // 下拉切换时更新显示
+    sel.onchange = function(){
+      var idx = sel.selectedIndex;
+      if(idx >= 0 && idx < unchecked.length){
+        updateSelectedInfo(unchecked[idx]);
+      }
+    };
+
+    window._uncheckedList = unchecked;
+  } catch(e) {
+    alert("打开匹配窗口出错: " + e.message);
+  }
+}
+
+function updateSelectedInfo(rec){
+  window._pendingMatch = rec;
+  document.getElementById("selectedInfo").innerHTML =
+    "当前选中：<b style='color:#ffd93d'>第" + rec.period + "期</b> | 共 <b style='color:#64dd17'>" + rec.allNumbers.length + "</b> 注号码";
 }
 
 function closeCheckModal(){
   document.getElementById("checkModal").className = "modal-overlay";
+  window._pendingMatch = null;
+  window._uncheckedList = null;
 }
 
-function autoFetchDraw(){
-  var period = document.getElementById("checkPeriod").value.trim();
-  if(!period){ alert("请先输入期号"); return; }
+function toggleManualInput(){
+  var area = document.getElementById("manualInputArea");
+  area.style.display = (area.style.display === "none") ? "block" : "none";
+}
 
-  // 先从HIST中查找
-  for(var i = 0; i < HIST.length; i++){
-    if(HIST[i].no === period){
-      document.getElementById("checkFront").value = HIST[i].f.join(" ");
-      document.getElementById("checkBack").value = HIST[i].b.join(" ");
-      alert("已自动填入第" + period + "期开奖号码\n前区: " + HIST[i].f.join(" ") + "\n后区: " + HIST[i].b.join(" "));
-      return;
+// 一键自动匹配：先查HIST→再查API→匹配
+function doAutoMatch(){
+  try {
+    var rec = window._pendingMatch;
+    if(!rec){ alert("请重新打开匹配窗口"); return; }
+    // 从下拉框确认当前选中的记录
+    var sel = document.getElementById("checkPeriodSelect");
+    var list = window._uncheckedList;
+    if(list && sel && sel.selectedIndex >= 0 && sel.selectedIndex < list.length){
+      rec = list[sel.selectedIndex];
+      window._pendingMatch = rec;
     }
-  }
+    var period = rec.period;
 
-  // HIST中没有，尝试从API获取
-  var s = document.getElementById("checkPeriod");
-  s.style.borderColor = "#ffd93d";
+    // 先在HIST中查找
+    for(var i = 0; i < HIST.length; i++){
+      if(HIST[i].no === period){
+        performMatch(rec, HIST[i].f, HIST[i].b, HIST[i].dt);
+        return;
+      }
+    }
 
-  var x = new XMLHttpRequest();
-  x.timeout = 8000;
-  var url = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=50&isVerify=1&pageNo=1";
-  x.open("GET", url, true);
+    // HIST没有，从API获取
+    var sel = document.getElementById("checkPeriodSelect");
+    var origText = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : "";
+    if(sel.options.length > 0 && sel.selectedIndex >= 0){
+      sel.options[sel.selectedIndex].textContent = "正在从体彩官网获取第" + period + "期...";
+      sel.disabled = true;
+    }
+
+    var x = new XMLHttpRequest();
+    x.timeout = 8000;
+    x.open("GET", "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=50&isVerify=1&pageNo=1", true);
   x.onload = function(){
+    // 恢复下拉框
+    if(sel.options.length > 0 && sel.selectedIndex >= 0){
+      sel.options[sel.selectedIndex].textContent = origText;
+      sel.disabled = false;
+    }
     if(x.status >= 200 && x.status < 300){
       try{
         var data = JSON.parse(x.responseText);
@@ -666,140 +773,141 @@ function autoFetchDraw(){
             var item = data.value.list[j];
             if(String(item.lotteryDrawNum) === period){
               var nums = item.lotteryDrawResult.trim().split(/\s+/);
-              var front = nums.slice(0, 5).join(" ");
-              var back = nums.slice(5, 7).join(" ");
-              document.getElementById("checkFront").value = front;
-              document.getElementById("checkBack").value = back;
-              s.style.borderColor = "";
-              alert("已从体彩官网获取第" + period + "期开奖号码\n前区: " + front + "\n后区: " + back);
+              var ff = nums.slice(0, 5).map(Number);
+              var bb = nums.slice(5, 7).map(Number);
+              var dt = item.lotteryDrawTime ? item.lotteryDrawTime.substring(0,10) : "";
+              btn.style.borderColor = "";
+              btn.value = period;
+              performMatch(rec, ff, bb, dt);
               return;
             }
           }
         }
-      }catch(e){}
+      }catch(e){ console.error("parse error", e); }
     }
-    s.style.borderColor = "";
-    alert("未找到第" + period + "期开奖数据，请手动输入\n（可能该期尚未开奖或期号有误）");
+    alert("未找到第" + period + "期开奖数据\n该期可能尚未开奖，请开奖后再试\n或点击「手动输入开奖号码」自行填入");
   };
   x.onerror = function(){
-    s.style.borderColor = "";
-    alert("网络请求失败，请手动输入开奖号码");
+    if(sel.options.length > 0 && sel.selectedIndex >= 0){
+      sel.options[sel.selectedIndex].textContent = origText;
+      sel.disabled = false;
+    }
+    alert("网络请求失败，请点击「手动输入开奖号码」");
   };
   x.ontimeout = function(){
-    s.style.borderColor = "";
-    alert("请求超时，请手动输入开奖号码");
+    if(sel.options.length > 0 && sel.selectedIndex >= 0){
+      sel.options[sel.selectedIndex].textContent = origText;
+      sel.disabled = false;
+    }
+    alert("请求超时，请稍后重试或点击「手动输入开奖号码」");
   };
   x.send();
+  } catch(e2) {
+    alert("自动匹配出错: " + e2.message);
+  }
 }
 
-// 大乐透奖金对照表（2025年官方规则）
+// 执行匹配逻辑（共用）
+function performMatch(rec, front, back, drawDate){
+  try{
+    var winDetails = [];
+    for(var j = 0; j < rec.allNumbers.length; j++){
+      var nums = rec.allNumbers[j];
+      // 兼容旧数据：如果没有f/b字段则跳过
+      if(!nums.f || !nums.b || !nums.f.length || !nums.b.length) continue;
+      var frontHit = 0;
+      var backHit = 0;
+      for(var k = 0; k < nums.f.length; k++){
+        if(front.indexOf(nums.f[k]) >= 0) frontHit++;
+      }
+      for(var l = 0; l < nums.b.length; l++){
+        if(back.indexOf(nums.b[l]) >= 0) backHit++;
+      }
+      var prize = getPrizeName(frontHit, backHit);
+      if(prize){
+        winDetails.push({
+          numbers: nums,
+          frontHit: frontHit,
+          backHit: backHit,
+          prize: prize.name,
+          amount: prize.amount
+        });
+      }
+    }
+
+    // 更新WIN_RECORDS
+    rec.drawResult = {f: front, b: back};
+    rec.winDetails = winDetails;
+    rec.drawDate = drawDate || new Date().toISOString().slice(0,10);
+    rec.isChecked = true;
+
+    saveData();
+    updateTrustDisplay();
+    renderWinRecords();
+    closeCheckModal();
+
+    var winCount = winDetails.length;
+    if(winCount > 0){
+      var msg = "🎉 恭喜！第" + rec.period + "期命中" + winCount + "注！\n\n";
+      for(var n = 0; n < winDetails.length; n++){
+        msg += "第" + (n+1) + "注: " + winDetails[n].prize + " (" + winDetails[n].amount + ")\n";
+      }
+      msg += "\n模型信赖度+1";
+      alert(msg);
+    } else {
+      alert("第" + rec.period + "期未中奖，继续加油！");
+    }
+  } catch(e3){
+    alert("匹配过程出错: " + e3.message + "\n\n请刷新页面重试");
+  }
+}
+
+// 手动匹配
+function doManualMatch(){
+  var rec = window._pendingMatch;
+  if(!rec){ alert("请重新打开匹配窗口"); return; }
+  var frontStr = document.getElementById("checkFront").value.trim();
+  var backStr = document.getElementById("checkBack").value.trim();
+
+  if(!frontStr || !backStr){ alert("请输入开奖号码"); return; }
+
+  var front = frontStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 35});
+  var back = backStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 12});
+
+  if(front.length !== 5){ alert("前区需要5个号码"); return; }
+  if(back.length !== 2){ alert("后区需要2个号码"); return; }
+
+  performMatch(rec, front, back, "");
+}
+
+// 大乐透中奖对照表（体彩官方规则 - 共7个奖级）
+// 一等奖: 5前+2后
+// 二等奖: 5前+1后
+// 三等奖: 5前+0后 或 4前+2后
+// 四等奖: 4前+1后
+// 五等奖: 4前+0后 或 3前+2后
+// 六等奖: 3前+1后 或 2前+2后
+// 七等奖: 3前+0后 或 2前+1后 或 1前+2后 或 0前+2后
 var PRIZE_TABLE = {
   "5_2": {name: "一等奖", amount: "浮动"},
   "5_1": {name: "二等奖", amount: "浮动"},
-  "5_0": {name: "三等奖", amount: "10,000元"},
-  "4_2": {name: "四等奖", amount: "3,000元"},
-  "4_1": {name: "五等奖", amount: "300元"},
-  "3_2": {name: "六等奖", amount: "200元"},
-  "4_0": {name: "七等奖", amount: "100元"},
-  "3_1": {name: "八等奖", amount: "15元"},
-  "2_2": {name: "八等奖", amount: "15元"},
-  "3_0": {name: "九等奖", amount: "5元"},
-  "1_2": {name: "九等奖", amount: "5元"},
-  "2_1": {name: "九等奖", amount: "5元"},
-  "0_2": {name: "九等奖", amount: "5元"}
+  "5_0": {name: "三等奖", amount: "6,666元"},
+  "4_2": {name: "三等奖", amount: "6,666元"},
+  "4_1": {name: "四等奖", amount: "380元"},
+  "4_0": {name: "五等奖", amount: "200元"},
+  "3_2": {name: "五等奖", amount: "200元"},
+  "3_1": {name: "六等奖", amount: "18元"},
+  "2_2": {name: "六等奖", amount: "18元"},
+  "3_0": {name: "七等奖", amount: "7元"},
+  "2_1": {name: "七等奖", amount: "7元"},
+  "1_2": {name: "七等奖", amount: "7元"},
+  "0_2": {name: "七等奖", amount: "7元"}
 };
 
 function getPrizeName(frontHit, backHit){
   var key = frontHit + "_" + backHit;
   if(PRIZE_TABLE[key]) return PRIZE_TABLE[key];
   return null;
-}
-
-function confirmCheck(){
-  var period = document.getElementById("checkPeriod").value.trim();
-  var frontStr = document.getElementById("checkFront").value.trim();
-  var backStr = document.getElementById("checkBack").value.trim();
-
-  if(!period){ alert("请输入期号"); return }
-  if(!frontStr || !backStr){ alert("请输入开奖号码"); return }
-
-  var front = frontStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 35});
-  var back = backStr.split(/[\s,，]+/).map(Number).filter(function(n){return n >= 1 && n <= 12});
-
-  if(front.length !== 5){ alert("前区需要5个号码"); return }
-  if(back.length !== 2){ alert("后区需要2个号码"); return }
-
-  // 查找该期记录
-  var found = false;
-  var recIndex = -1;
-  for(var i = 0; i < WIN_RECORDS.length; i++){
-    if(WIN_RECORDS[i].period === period){
-      found = true;
-      recIndex = i;
-      break;
-    }
-  }
-
-  if(!found){
-    alert("未找到第" + period + "期的记录，请先生成该期号码");
-    return;
-  }
-
-  // 匹配中奖
-  var winDetails = [];
-  for(var j = 0; j < WIN_RECORDS[recIndex].allNumbers.length; j++){
-    var nums = WIN_RECORDS[recIndex].allNumbers[j];
-    var frontHit = 0;
-    var backHit = 0;
-    for(var k = 0; k < nums.f.length; k++){
-      if(front.indexOf(nums.f[k]) >= 0) frontHit++;
-    }
-    for(var l = 0; l < nums.b.length; l++){
-      if(back.indexOf(nums.b[l]) >= 0) backHit++;
-    }
-    var prize = getPrizeName(frontHit, backHit);
-    if(prize){
-      winDetails.push({
-        numbers: nums,
-        frontHit: frontHit,
-        backHit: backHit,
-        prize: prize.name,
-        amount: prize.amount
-      });
-    }
-  }
-
-  // 获取开奖日期
-  var drawDate = "";
-  for(var m = 0; m < HIST.length; m++){
-    if(HIST[m].no === period){
-      drawDate = HIST[m].dt;
-      break;
-    }
-  }
-  if(!drawDate) drawDate = new Date().toISOString().slice(0,10);
-
-  WIN_RECORDS[recIndex].drawResult = {f: front, b: back};
-  WIN_RECORDS[recIndex].winDetails = winDetails;
-  WIN_RECORDS[recIndex].drawDate = drawDate;
-  WIN_RECORDS[recIndex].isChecked = true;
-
-  saveData();
-  updateTrustDisplay();
-  renderWinRecords();
-  closeCheckModal();
-
-  var winCount = winDetails.length;
-  if(winCount > 0){
-    var msg = "🎉 恭喜！第" + period + "期命中" + winCount + "注！\n\n";
-    for(var n = 0; n < winDetails.length; n++){
-      msg += "第" + (n+1) + "注: " + winDetails[n].prize + " (" + winDetails[n].amount + ")\n";
-    }
-    msg += "\n模型信赖度+1";
-    alert(msg);
-  } else {
-    alert("第" + period + "期未中奖，继续加油！");
-  }
 }
 
 // ========== 数据导出/导入 ==========
@@ -902,6 +1010,14 @@ function resetParams(){
   document.getElementById("p_backCode").checked = true;
   document.getElementById("p_backOdd").checked = true;
   document.getElementById("p_backSize").checked = true;
+  document.getElementById("p_dupFilter50").checked = true;
+  document.getElementById("p_spanOn").checked = true;
+  document.getElementById("p_spanMin").value = 15;
+  document.getElementById("p_spanMax").value = 32;
+  document.getElementById("p_mod3On").checked = true;
+  document.getElementById("p_mod3Min").value = 1;
+  document.getElementById("p_backGapOn").checked = true;
+  document.getElementById("p_backGapMin").value = 2;
   alert("已重置为M6默认参数");
 }
 
@@ -1273,7 +1389,15 @@ function generate(){
     freeze: document.getElementById("p_freeze").checked,
     backCode: document.getElementById("p_backCode").checked,
     backOdd: document.getElementById("p_backOdd").checked,
-    backSize: document.getElementById("p_backSize").checked
+    backSize: document.getElementById("p_backSize").checked,
+    dupFilter50: document.getElementById("p_dupFilter50").checked,
+    spanOn: document.getElementById("p_spanOn").checked,
+    spanMin: Number(document.getElementById("p_spanMin").value),
+    spanMax: Number(document.getElementById("p_spanMax").value),
+    mod3On: document.getElementById("p_mod3On").checked,
+    mod3Min: Number(document.getElementById("p_mod3Min").value),
+    backGapOn: document.getElementById("p_backGapOn").checked,
+    backGapMin: Number(document.getElementById("p_backGapMin").value)
   };
 
   var pool5 = {};
@@ -1292,32 +1416,50 @@ function generate(){
     for(var n = 0; n < HIST[m].b.length; n++){ backPool[HIST[m].b[n]] = true }
   }
 
-  // 构建最近50期前区完整组合的查找表（用于去重）
-  var recentFront50 = {};
-  for(var ri = 0; ri < Math.min(50, HIST.length); ri++){
-    recentFront50[HIST[ri].f.join(",")] = true;
-  }
+    // 构建最近50期前区完整组合的查找表（用于去重）
+    var recentFront50 = {};
+    for(var ri = 0; ri < Math.min(50, HIST.length); ri++){
+      recentFront50[HIST[ri].f.join(",")] = true;
+    }
 
-  var candidates = [];
-  var maxTry = 50000;
-  var tried = 0;
+    var candidates = [];
+    var maxTry = 50000;
+    var tried = 0;
 
-  while(candidates.length < 200 && tried < maxTry){
-    tried++;
-    var f = generateFront();
-    var b = generateBack();
+    while(candidates.length < 200 && tried < maxTry){
+      tried++;
+      var f = generateFront();
+      var b = generateBack();
 
-    if(!checkSum(f, p.sumMin, p.sumMax)) continue;
-    if(!checkOddEven(f)) continue;
-    if(!checkSize(f)) continue;
-    if(!checkTail(f, p.sameTail)) continue;
-    if(!checkZone(f)) continue;
-    if(!checkRB(f, b, p.rbMin, p.rbMax)) continue;
+      if(!checkSum(f, p.sumMin, p.sumMax)) continue;
+      if(!checkOddEven(f)) continue;
+      if(!checkSize(f)) continue;
+      if(!checkTail(f, p.sameTail)) continue;
+      if(!checkZone(f)) continue;
+      if(!checkRB(f, b, p.rbMin, p.rbMax)) continue;
 
-    // 否决：前区5个号码与最近50期任何一期完全重合
-    if(recentFront50[f.join(",")]) continue;
+      // 去重过滤：前区5个号码与最近50期任何一期完全重合（可开关）
+      if(p.dupFilter50 && recentFront50[f.join(",")]) continue;
 
-    if(p.freeze && freezeBack[b.join(",")]) continue;
+      // 前区跨度过滤：max - min 范围
+      if(p.spanOn){
+        var span = f[4] - f[0]; // f已排序
+        if(span < p.spanMin || span > p.spanMax) continue;
+      }
+
+      // 除3余数均衡：确保每种余数至少N个
+      if(p.mod3On){
+        var modCount = [0, 0, 0]; // 余0/1/2的计数器
+        for(var mi = 0; mi < f.length; mi++){ modCount[f[mi] % 3]++; }
+        if(modCount[0] < p.mod3Min || modCount[1] < p.mod3Min || modCount[2] < p.mod3Min) continue;
+      }
+
+      // 后区间距过滤
+      if(p.backGapOn){
+        if(b[1] - b[0] < p.backGapMin) continue;
+      }
+
+      if(p.freeze && freezeBack[b.join(",")]) continue;
 
     var score = calcScore(f, b, baseFront, pool5, pool10, backPool, p);
     candidates.push({f:f, b:b, score:score});
