@@ -270,6 +270,7 @@ body{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;b
 <script>
 // ========== 数据 ==========
 var HIST = [
+  {no:"26075",dt:"2026-07-06",f:[1,6,16,18,26],b:[4,10]},
   {no:"26074",dt:"2026-07-04",f:[1,4,10,23,25],b:[1,12]},
   {no:"26073",dt:"2026-07-01",f:[4,10,22,23,33],b:[2,12]},
   {no:"26072",dt:"2026-06-29",f:[1,13,26,29,30],b:[9,11]},
@@ -279,7 +280,46 @@ var HIST = [
   {no:"26068",dt:"2026-06-20",f:[3,11,12,21,22],b:[6,10]},
   {no:"26067",dt:"2026-06-17",f:[6,16,18,19,28],b:[7,11]},
   {no:"26066",dt:"2026-06-15",f:[10,13,19,21,30],b:[4,5]},
-  {no:"26065",dt:"2026-06-13",f:[4,11,12,13,25],b:[4,8]}
+  {no:"26065",dt:"2026-06-13",f:[4,11,12,13,25],b:[4,8]},
+  {no:"26064",dt:"2026-06-10",f:[3,13,15,17,21],b:[2,7]},
+  {no:"26063",dt:"2026-06-08",f:[3,15,20,29,31],b:[1,12]},
+  {no:"26062",dt:"2026-06-06",f:[7,15,20,24,29],b:[4,10]},
+  {no:"26061",dt:"2026-06-03",f:[10,12,26,31,35],b:[2,12]},
+  {no:"26060",dt:"2026-06-01",f:[22,28,30,31,34],b:[1,5]},
+  {no:"26059",dt:"2026-05-30",f:[6,13,17,19,26],b:[7,8]},
+  {no:"26058",dt:"2026-05-27",f:[7,12,13,18,34],b:[1,5]},
+  {no:"26057",dt:"2026-05-25",f:[23,25,26,27,34],b:[4,10]},
+  {no:"26056",dt:"2026-05-23",f:[6,7,18,21,30],b:[1,5]},
+  {no:"26055",dt:"2026-05-20",f:[9,10,20,33,35],b:[4,11]},
+  {no:"26054",dt:"2026-05-18",f:[2,6,14,22,24],b:[8,11]},
+  {no:"26053",dt:"2026-05-16",f:[2,9,14,20,31],b:[5,9]},
+  {no:"26052",dt:"2026-05-13",f:[2,3,20,28,33],b:[2,12]},
+  {no:"26051",dt:"2026-05-11",f:[13,18,28,32,33],b:[2,11]},
+  {no:"26050",dt:"2026-05-09",f:[6,10,14,23,33],b:[8,10]},
+  {no:"26049",dt:"2026-05-06",f:[1,6,14,15,17],b:[2,3]},
+  {no:"26048",dt:"2026-05-04",f:[11,17,20,23,35],b:[1,10]},
+  {no:"26047",dt:"2026-05-02",f:[9,20,21,23,28],b:[6,11]},
+  {no:"26046",dt:"2026-04-29",f:[1,13,18,27,33],b:[4,7]},
+  {no:"26045",dt:"2026-04-27",f:[1,15,21,26,33],b:[4,7]},
+  {no:"26044",dt:"2026-04-25",f:[3,8,22,26,29],b:[7,10]},
+  {no:"26043",dt:"2026-04-22",f:[8,12,14,19,22],b:[11,12]},
+  {no:"26042",dt:"2026-04-20",f:[2,7,13,19,24],b:[3,8]},
+  {no:"26041",dt:"2026-04-18",f:[24,25,27,29,34],b:[2,6]},
+  {no:"26040",dt:"2026-04-15",f:[6,12,13,21,34],b:[8,9]},
+  {no:"26039",dt:"2026-04-13",f:[9,11,20,26,27],b:[6,9]},
+  {no:"26038",dt:"2026-04-11",f:[8,17,21,33,35],b:[6,7]},
+  {no:"26037",dt:"2026-04-08",f:[7,12,13,28,32],b:[6,8]},
+  {no:"26036",dt:"2026-04-06",f:[4,7,16,26,32],b:[5,8]},
+  {no:"26035",dt:"2026-04-04",f:[2,22,30,33,34],b:[8,12]},
+  {no:"26034",dt:"2026-04-01",f:[11,12,25,26,27],b:[8,11]},
+  {no:"26033",dt:"2026-03-30",f:[3,5,7,9,18],b:[2,10]},
+  {no:"26032",dt:"2026-03-28",f:[3,4,19,26,32],b:[1,12]},
+  {no:"26031",dt:"2026-03-25",f:[6,8,22,29,34],b:[5,7]},
+  {no:"26030",dt:"2026-03-23",f:[2,13,22,28,34],b:[5,12]},
+  {no:"26029",dt:"2026-03-21",f:[3,5,17,33,35],b:[5,7]},
+  {no:"26028",dt:"2026-03-18",f:[15,27,29,30,34],b:[1,10]},
+  {no:"26027",dt:"2026-03-16",f:[9,10,11,12,16],b:[1,11]},
+  {no:"26026",dt:"2026-03-14",f:[10,11,22,26,32],b:[1,8]}
 ];
 
 // 中奖追踪记录
@@ -596,10 +636,63 @@ function closeCheckModal(){
 }
 
 function autoFetchDraw(){
-  alert("自动获取功能开发中，请手动输入开奖结果");
+  var period = document.getElementById("checkPeriod").value.trim();
+  if(!period){ alert("请先输入期号"); return; }
+
+  // 先从HIST中查找
+  for(var i = 0; i < HIST.length; i++){
+    if(HIST[i].no === period){
+      document.getElementById("checkFront").value = HIST[i].f.join(" ");
+      document.getElementById("checkBack").value = HIST[i].b.join(" ");
+      alert("已自动填入第" + period + "期开奖号码\n前区: " + HIST[i].f.join(" ") + "\n后区: " + HIST[i].b.join(" "));
+      return;
+    }
+  }
+
+  // HIST中没有，尝试从API获取
+  var s = document.getElementById("checkPeriod");
+  s.style.borderColor = "#ffd93d";
+
+  var x = new XMLHttpRequest();
+  x.timeout = 8000;
+  var url = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=50&isVerify=1&pageNo=1";
+  x.open("GET", url, true);
+  x.onload = function(){
+    if(x.status >= 200 && x.status < 300){
+      try{
+        var data = JSON.parse(x.responseText);
+        if(data.value && data.value.list){
+          for(var j = 0; j < data.value.list.length; j++){
+            var item = data.value.list[j];
+            if(String(item.lotteryDrawNum) === period){
+              var nums = item.lotteryDrawResult.trim().split(/\s+/);
+              var front = nums.slice(0, 5).join(" ");
+              var back = nums.slice(5, 7).join(" ");
+              document.getElementById("checkFront").value = front;
+              document.getElementById("checkBack").value = back;
+              s.style.borderColor = "";
+              alert("已从体彩官网获取第" + period + "期开奖号码\n前区: " + front + "\n后区: " + back);
+              return;
+            }
+          }
+        }
+      }catch(e){}
+    }
+    s.style.borderColor = "";
+    alert("未找到第" + period + "期开奖数据，请手动输入\n（可能该期尚未开奖或期号有误）");
+  };
+  x.onerror = function(){
+    s.style.borderColor = "";
+    alert("网络请求失败，请手动输入开奖号码");
+  };
+  x.ontimeout = function(){
+    s.style.borderColor = "";
+    alert("请求超时，请手动输入开奖号码");
+  };
+  x.send();
 }
 
-// 大乐透奖金对照表（2026年）
+// 大乐透奖金对照表（2025年官方规则）
 var PRIZE_TABLE = {
   "5_2": {name: "一等奖", amount: "浮动"},
   "5_1": {name: "二等奖", amount: "浮动"},
@@ -609,11 +702,10 @@ var PRIZE_TABLE = {
   "3_2": {name: "六等奖", amount: "200元"},
   "4_0": {name: "七等奖", amount: "100元"},
   "3_1": {name: "八等奖", amount: "15元"},
-  "2_1": {name: "八等奖", amount: "15元"},
+  "2_2": {name: "八等奖", amount: "15元"},
   "3_0": {name: "九等奖", amount: "5元"},
-  "2_0": {name: "九等奖", amount: "5元"},
   "1_2": {name: "九等奖", amount: "5元"},
-  "1_1": {name: "九等奖", amount: "5元"},
+  "2_1": {name: "九等奖", amount: "5元"},
   "0_2": {name: "九等奖", amount: "5元"}
 };
 
@@ -760,7 +852,8 @@ function updateHistDisplay(){
   document.getElementById("bb").value = h.b.join(" ");
   var tbody = document.getElementById("htbody");
   var html = "";
-  for(var i = 0; i < HIST.length; i++){
+  var showCount = Math.min(10, HIST.length);
+  for(var i = 0; i < showCount; i++){
     var d = HIST[i];
     var fStr = "";
     for(var j = 0; j < d.f.length; j++){
@@ -869,12 +962,12 @@ function confirmManual(){
 // 成功→静默更新数据；失败→用户完全无感知
 
 var API_LIST = [
-  { name:"体彩官方", url:"https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=10&isVerify=1&pageNo=1",
-    parse:function(d){ if(!d||!d.value||!d.value.list)return null; var r=[],l=d.value.list; for(var i=0;i<l.length&&i<10;i++){var n=l[i],nums=n.lotteryDrawResult.trim().split(/\s+/); r.push({no:String(n.lotteryDrawNum),dt:n.lotteryDrawTime?n.lotteryDrawTime.substring(0,10):"",f:nums.slice(0,5).map(Number),b:nums.slice(5,7).map(Number)});} return r.length>0?r:null; } },
-  { name:"骑士网", url:"https://www.qishiapi.com/kaijiang/dlt/json?limit=10",
-    parse:function(d){ if(!d||!d.data)return null; var items=d.data.list||d.data;if(!Array.isArray(items))items=[items];var r=[];for(var i=0;i<items.length&&i<10;i++){var it=items[i],no=String(it.expect||it.issue||"").replace(/^20/,""),dt=(it.date||it.time||"").substring(0,10),ns=String(it.number||it.openCode||""),f=[],b=[];if(ns.indexOf("|")>-1){var p=ns.split("|");f=p[0].split(/[,+\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p[1].split(/[,+\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else if(ns.indexOf("+")>-1){var p2=ns.split("+");f=p2[0].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p2[1].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else{var all=ns.split(/[,，\s+|]+/).map(Number).filter(function(n){return n>0;});f=all.slice(0,5);b=all.slice(5,7);}if(f.length===5&&b.length===2)r.push({no:no,dt:dt,f:f,b:b});}return r.length>0?r:null;} },
-  { name:"彩票之家", url:"https://www.caipiaodate.com/lotteryApi/common/getLotteryList?code=dlt&rows=10&format=json",
-    parse:function(d){ if(!d||!d.result||!d.result.data)return null;var items=d.result.data,r=[];if(!Array.isArray(items))items=[items];for(var i=0;i<items.length&&i<10;i++){var it=items[i],no=String(it.expect||"").replace(/^20/,""),dt=(it.date||"").substring(0,10),ns=String(it.number||""),f=[],b=[];if(ns.indexOf("+")>-1){var p=ns.split("+");f=p[0].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p[1].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else{var all=ns.split(/[,，\s+|]+/).map(Number).filter(function(n){return n>0;});f=all.slice(0,5);b=all.slice(5,7);}if(f.length===5&&b.length===2)r.push({no:no,dt:dt,f:f,b:b});}return r.length>0?r:null;} }
+  { name:"体彩官方", url:"https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry?gameNo=85&provinceId=0&pageSize=50&isVerify=1&pageNo=1",
+    parse:function(d){ if(!d||!d.value||!d.value.list)return null; var r=[],l=d.value.list; for(var i=0;i<l.length&&i<50;i++){var n=l[i],nums=n.lotteryDrawResult.trim().split(/\s+/); r.push({no:String(n.lotteryDrawNum),dt:n.lotteryDrawTime?n.lotteryDrawTime.substring(0,10):"",f:nums.slice(0,5).map(Number),b:nums.slice(5,7).map(Number)});} return r.length>0?r:null; } },
+  { name:"骑士网", url:"https://www.qishiapi.com/kaijiang/dlt/json?limit=50",
+    parse:function(d){ if(!d||!d.data)return null; var items=d.data.list||d.data;if(!Array.isArray(items))items=[items];var r=[];for(var i=0;i<items.length&&i<50;i++){var it=items[i],no=String(it.expect||it.issue||"").replace(/^20/,""),dt=(it.date||it.time||"").substring(0,10),ns=String(it.number||it.openCode||""),f=[],b=[];if(ns.indexOf("|")>-1){var p=ns.split("|");f=p[0].split(/[,+\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p[1].split(/[,+\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else if(ns.indexOf("+")>-1){var p2=ns.split("+");f=p2[0].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p2[1].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else{var all=ns.split(/[,，\s+|]+/).map(Number).filter(function(n){return n>0;});f=all.slice(0,5);b=all.slice(5,7);}if(f.length===5&&b.length===2)r.push({no:no,dt:dt,f:f,b:b});}return r.length>0?r:null;} },
+  { name:"彩票之家", url:"https://www.caipiaodate.com/lotteryApi/common/getLotteryList?code=dlt&rows=50&format=json",
+    parse:function(d){ if(!d||!d.result||!d.result.data)return null;var items=d.result.data,r=[];if(!Array.isArray(items))items=[items];for(var i=0;i<items.length&&i<50;i++){var it=items[i],no=String(it.expect||"").replace(/^20/,""),dt=(it.date||"").substring(0,10),ns=String(it.number||""),f=[],b=[];if(ns.indexOf("+")>-1){var p=ns.split("+");f=p[0].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=35;});b=p[1].split(/[,，\s]+/).map(Number).filter(function(n){return n>=1&&n<=12;});}else{var all=ns.split(/[,，\s+|]+/).map(Number).filter(function(n){return n>0;});f=all.slice(0,5);b=all.slice(5,7);}if(f.length===5&&b.length===2)r.push({no:no,dt:dt,f:f,b:b});}return r.length>0?r:null;} }
 ];
 
 // ========== 从同域JSON文件自动读取（GitHub Actions 更新） ==========
@@ -1199,6 +1292,12 @@ function generate(){
     for(var n = 0; n < HIST[m].b.length; n++){ backPool[HIST[m].b[n]] = true }
   }
 
+  // 构建最近50期前区完整组合的查找表（用于去重）
+  var recentFront50 = {};
+  for(var ri = 0; ri < Math.min(50, HIST.length); ri++){
+    recentFront50[HIST[ri].f.join(",")] = true;
+  }
+
   var candidates = [];
   var maxTry = 50000;
   var tried = 0;
@@ -1214,6 +1313,9 @@ function generate(){
     if(!checkTail(f, p.sameTail)) continue;
     if(!checkZone(f)) continue;
     if(!checkRB(f, b, p.rbMin, p.rbMax)) continue;
+
+    // 否决：前区5个号码与最近50期任何一期完全重合
+    if(recentFront50[f.join(",")]) continue;
 
     if(p.freeze && freezeBack[b.join(",")]) continue;
 
